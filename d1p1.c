@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include <math.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -8,7 +9,8 @@
 #include <gsl/gsl_matrix.h>
 #include <gsl/gsl_vector.h>
 
-#define NPTS 126
+#define NPTS 255
+#define MIDDLE ((NPTS+1)/2)
 #define STATESIZE (NPTS + 2)
 
 #define MASS 1.0
@@ -28,11 +30,16 @@ int main(void)
   
   solve_potential("data/none", V);
 
-  for (int j = NPTS/2; j <= NPTS; j++) {
-    gsl_vector_set(V, j, 50.0);
-  }
+  char *prefix;
 
-  solve_potential("data/half", V);
+  for (double V0 = 0.5; V0 < 1025; V0 *= 2.0) {
+    if (asprintf(&prefix, "data/%0.1f", V0) < 0) { exit(1); }
+
+    gsl_vector_set(V, MIDDLE, V0);
+    solve_potential(prefix, V);
+
+    free(prefix);
+  }
 }
 
 void solve_potential(const char *prefix, const gsl_vector *V)
@@ -97,7 +104,7 @@ void eig_table(gsl_matrix **Psis, gsl_vector **Es, const gsl_vector *eval, const
 void write_potential(const char *prefix, const gsl_vector *V)
 {
   char *stname;
-  asprintf(&stname, "%s_V.txt", prefix);
+  if (asprintf(&stname, "%s_V.txt", prefix) < 0) { exit(1); }
   FILE *fpot;
   if ((fpot = fopen(stname, "w")) == NULL) {
     fprintf(stderr, "Cannot open output file \"%s\"\n", stname);
@@ -117,7 +124,7 @@ void write_hermitian(const char *prefix, const gsl_matrix *H)
   FILE *fout;
 
   char *stname;
-  asprintf(&stname, "%s_H.txt", prefix);
+  if (asprintf(&stname, "%s_H.txt", prefix) < 0) { exit(1); }
   if ((fout = fopen(stname, "w")) == NULL) {
     fprintf(stderr, "Cannot open output file \"%s\"\n", stname);
     exit(1);
@@ -149,7 +156,7 @@ void write_energies(const char *prefix, const gsl_matrix *Psis, const gsl_vector
   FILE *fout;
 
   char *stname;
-  asprintf(&stname, "%s_E.txt", prefix);
+  if (asprintf(&stname, "%s_E.txt", prefix) < 0) { exit(1); }
   if ((fout = fopen(stname, "w")) == NULL) {
     fprintf(stderr, "Cannot open output file \"%s\"\n", stname);
     exit(1);
@@ -173,7 +180,7 @@ void write_psi(const char *prefix, const gsl_matrix *Psis, const gsl_vector *Es)
   FILE *fout;
 
   char *stname;
-  asprintf(&stname, "%s_psi.txt", prefix);
+  if (asprintf(&stname, "%s_psi.txt", prefix) < 0) { exit(1); }
   if ((fout = fopen(stname, "w")) == NULL) {
     fprintf(stderr, "Cannot open output file \"%s\"\n", stname);
     exit(1);
