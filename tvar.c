@@ -73,9 +73,9 @@ int main(void)
   iterate();
 }
 
-#define TFINAL 5
+#define TFINAL 10.0
 
-#define V0MAX 50.0
+#define V0MAX 75.0
 
 #define TSTART   0.5
 #define THOLD    1.5
@@ -170,6 +170,7 @@ void iterate(void)
 
     set_timeevol(U1, Hprev, Hnext, HSTEP, TSTEP, NULL);
 
+    /*
     gsl_matrix_complex_memcpy(Utmp, U0ttl);
     gsl_blas_zgemm(CblasNoTrans, CblasNoTrans, one, U0, Utmp, zero, U0ttl);
     printf("U0ttl at %0.2f: ", tstep*TSTEP);
@@ -177,14 +178,17 @@ void iterate(void)
 
     fprintf(psi0t, "%0.6f", tstep*TSTEP);
     fwrite_evolved_psi(psi0t, psi0, U0ttl);
+    */
     
     gsl_matrix_complex_memcpy(Utmp, U1ttl);
     gsl_blas_zgemm(CblasNoTrans, CblasNoTrans, one, U1, Utmp, zero, U1ttl);
-    printf("U1ttl at %0.2f: ", tstep*TSTEP);
-    check_unitarity(U1ttl, NULL);
 
-    fprintf(psi1t, "%0.6f", tstep*TSTEP);
-    fwrite_evolved_psi(psi1t, psi0, U1ttl);
+    if (tstep % 4 == 0) {
+      printf("U1ttl at %0.2f: ", tstep*TSTEP);
+      check_unitarity(U1ttl, NULL);
+      fprintf(psi1t, "%0.6f", tstep*TSTEP);
+      fwrite_evolved_psi(psi1t, psi0, U1ttl);
+    }
   }
 
   gsl_matrix_complex *DU = gsl_matrix_complex_alloc(STATESIZE, STATESIZE);
