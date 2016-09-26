@@ -97,6 +97,7 @@ void set_timeevol(gsl_matrix_complex *U, const gsl_matrix *H0, const gsl_matrix 
   GSL_SET_COMPLEX(&zero, 0.0, 0.0);
   gsl_blas_zgemm(CblasNoTrans, CblasNoTrans, one, Ainv, B, zero, U);
 
+  
   if (fdebug) {
     fprintf(fdebug, "Ainv = \n");
     fwrite_matrix_complex(fdebug, Ainv);
