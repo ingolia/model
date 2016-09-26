@@ -7,19 +7,22 @@
 #include <gsl/gsl_complex.h>
 #include <gsl/gsl_eigen.h>
 #include <gsl/gsl_matrix.h>
+#include <gsl/gsl_matrix_complex_double.h>
 #include <gsl/gsl_vector.h>
 
 #include "schutil.h"
 
-void set_hermitian(gsl_matrix *H, const gsl_vector *V, const double mass, const double hstep)
+void check_deviation(const gsl_matrix *Z, size_t *imax, size_t *jmax, double *absmax, double *norm);
+
+void set_hamiltonian(gsl_matrix *H, const gsl_vector *V, const double mass, const double hstep)
 {
   const int npts = H->size1-2;
 
   if (H->size1 != H->size2) {
-    fprintf(stderr, "set_hermitian: non-square H");
+    fprintf(stderr, "set_hamiltonian: non-square H");
     exit(1);
   } else if (H->size1 != V->size) {
-    fprintf(stderr, "set_hermitian: size of H and V don't match");
+    fprintf(stderr, "set_hamiltonian: size of H and V don't match");
     exit(1);
   }
   
@@ -54,7 +57,7 @@ void write_potential(const char *prefix, const gsl_vector *V)
   fclose(fpot);
 }
 
-void write_hermitian(const char *prefix, const gsl_matrix *H)
+void write_hamiltonian(const char *prefix, const gsl_matrix *H)
 {
   FILE *fout;
 
@@ -140,3 +143,46 @@ void write_psi(const char *prefix, const gsl_matrix *Psis, const gsl_vector *Es)
   fclose(fout);
 }
 
+void check_symmetry(const gsl_matrix *M)
+{
+  if (M->size1 != M->size2) {
+    fprintf(stderr, "check_hermiticity: non-square M");
+    exit(1);
+  }
+
+  gsl_matrix *Mt = gsl_matrix_alloc(M->size2, M->size1);
+  gsl_matrix_transpose_memcpy(Mt, M);
+  gsl_matrix_sub(Mt, M);
+
+  size_t imax, jmax;
+  double absmax, norm;
+  check_deviation(Mt, &imax, &jmax, &absmax, &norm);
+  printf("check_symmetry: |M - Mt|^2 = %e, max at (%lu, %lu) = %e\n", norm, imax, jmax, absmax);
+  
+  gsl_matrix_free(Mt);
+}
+
+void check_unitarity(const gsl_matrix_complex *M)
+{
+
+}
+
+void check_deviation(const gsl_matrix *Z, size_t *imax, size_t *jmax, double *absmax, double *norm)
+{
+  (*imax) = 0;
+  (*jmax) = 0;
+  (*absmax) = -1;
+  (*norm) = 0.0;
+  for (size_t i = 0; i < Z->size1; i++) {
+    for (size_t j = 0; j < Z->size2; j++){
+      const double Zij = gsl_matrix_get(Z, i, j);
+      if (fabs(Zij) > (*absmax)) {
+        (*absmax) = fabs(Zij);
+        (*imax) = i;
+        (*jmax) = j;
+      }
+
+      (*norm) += (Zij * Zij);
+    }
+  }
+}
