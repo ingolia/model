@@ -113,6 +113,47 @@ void set_timeevol(gsl_matrix_complex *U, const gsl_matrix *H0, const gsl_matrix 
   gsl_matrix_complex_free(B);
 }
 
+void eigen_solve_alloc(const gsl_matrix *Hin, gsl_vector **eval, gsl_matrix **evec)
+{
+  const size_t STATESIZE = Hin->size1;
+  if (Hin->size2 != STATESIZE) {
+    fprintf(stderr, "eigen_solve_alloc: Hin not square");
+    exit(1);
+  }
+
+  gsl_matrix *H = gsl_matrix_alloc(STATESIZE, STATESIZE);
+  gsl_matrix_memcpy(H, Hin);
+  
+  *eval = gsl_vector_alloc(STATESIZE);
+  *evec = gsl_matrix_alloc(STATESIZE, STATESIZE);
+
+  gsl_eigen_symmv_workspace *w = gsl_eigen_symmv_alloc(STATESIZE);
+
+  gsl_eigen_symmv(H, *eval, *evec, w);
+
+  gsl_eigen_symmv_free(w);
+  gsl_matrix_free(H);
+  
+  gsl_eigen_symmv_sort(*eval, *evec, GSL_EIGEN_SORT_VAL_ASC);
+}
+
+void eigen_norm_state_alloc(const gsl_matrix *evec, int state, gsl_vector_complex **psi_state)
+{
+  const int STATESIZE = evec->size1;
+  if (evec->size2 != STATESIZE) {
+    fprintf(stderr, "eigen_norm_state_alloc: evec not square");
+    exit(1);
+  }
+  *psi_state = gsl_vector_complex_alloc(STATESIZE);
+  double psi_norm = 0.0;
+  for (int j = 0; j < STATESIZE; j++) {
+    gsl_complex ej = gsl_complex_rect(gsl_matrix_get(evec, j, state), 0.0);
+    gsl_vector_complex_set(*psi_state, j, ej);
+    psi_norm += gsl_complex_abs2(ej);
+  }
+  gsl_vector_complex_scale(*psi_state, gsl_complex_rect(1.0 / sqrt(psi_norm), 0.0));
+}
+
 void write_potential(const char *prefix, const gsl_vector *V)
 {
   char *stname;
