@@ -77,7 +77,7 @@ int main(void)
   iterate();
 }
 
-#define FREE_TFINAL 10.0
+#define FREE_TFINAL 5.0
 
 #define STATE0 2
 #define STATE1 3
@@ -150,14 +150,14 @@ void unperturbed(void)
   fclose(psi1ph);
 }
 
-#define TFINAL 10.0
+#define TFINAL 4.0
 
 #define V0MAX 75.0
 
 #define TSTART   0.5
-#define THOLD    1.5
-#define TRELEASE 2.5
-#define TDONE    3.5
+#define THOLD    1.0
+#define TRELEASE 1.5
+#define TDONE    2.0
 
 #define GROUNDSTATE 2
 
@@ -249,9 +249,9 @@ void iterate(void)
     gsl_blas_zgemm(CblasNoTrans, CblasNoTrans, one, U1, Utmp, zero, U1ttl);
 
     if (tstep % 4 == 0) {
-      printf("U1ttl at %0.2f: ", tstep*TSTEP);
+      printf("U1ttl at %0.2f: ", t);
       check_unitarity(U1ttl, NULL);
-      fprintf(psi1t, "%0.6f", tstep*TSTEP);
+      fprintf(psi1t, "%0.6f", t);
       fwrite_evolved_psi(psi1t, psi0, U1ttl);
     }
   }
