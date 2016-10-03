@@ -14,6 +14,7 @@
 #include <gsl/gsl_vector.h>
 
 #include "schutil.h"
+#include "writing.h"
 
 #ifdef HAVE_INLINE
 #warning "Have inline!"
@@ -54,18 +55,23 @@ void timeevol_halves_workspace_free(timeevol_halves_workspace *w)
   free(w);
 }
 
-void set_timeevol_workspace_halfH(timeevol_halves_workspace *w,
-			    const gsl_matrix *H0, const gsl_matrix *H1,
-			    const double tstep)
+timeevol_halves *timeevol_halves_alloc(const size_t N)
 {
-  const size_t N = H0->size1;
-  
-  for (size_t i = 0; i < N; i++) {
-    for (size_t j = 0; j < N; j++) {
-      gsl_complex *halfHij = gsl_matrix_complex_ptr(w->halfH, i, j);
-      GSL_SET_COMPLEX(halfHij, 0.25 * (gsl_matrix_get(H0, i, j) + gsl_matrix_get(H1, i, j)), 0.0);
-    }
-  }
+  timeevol_halves *U = malloc(sizeof(timeevol_halves));
+  U->A = gsl_matrix_complex_calloc(N, N);
+  U->B = gsl_matrix_complex_calloc(N, N);
+  U->ALU = gsl_matrix_complex_calloc(N, N);
+  U->ALUp = gsl_permutation_alloc(N);
+  return U;
+}
+
+void timeevol_halves_free(timeevol_halves *U)
+{
+  gsl_permutation_free(U->ALUp);
+  gsl_matrix_complex_free(U->ALU);
+  gsl_matrix_complex_free(U->B);
+  gsl_matrix_complex_free(U->A);
+  free(U);
 }
 
 void set_timeevol_halves(timeevol_halves *U, timeevol_halves_workspace *w,
@@ -80,8 +86,13 @@ void set_timeevol_halves(timeevol_halves *U, timeevol_halves_workspace *w,
   ASSERT_SQUARE_SIZE(U->A, N, "timeevol_halves: U->A bad size");
   ASSERT_SQUARE_SIZE(U->B, N, "timeevol_halves: U->B bad size");
 
-  set_timeevol_workspace_halfH(w, H0, H1, tstep);
-  
+  for (size_t i = 0; i < N; i++) {
+    for (size_t j = 0; j < N; j++) {
+      gsl_complex *halfHij = gsl_matrix_complex_ptr(w->halfH, i, j);
+      GSL_SET_COMPLEX(halfHij, 0.25 * (gsl_matrix_get(H0, i, j) + gsl_matrix_get(H1, i, j)), 0.0);
+    }
+  }
+
   if (fdebug) {
     fprintf(fdebug, "halfH = \n");
     fwrite_matrix_complex(fdebug, w->halfH);
@@ -89,6 +100,10 @@ void set_timeevol_halves(timeevol_halves *U, timeevol_halves_workspace *w,
   
   gsl_complex ihdt;
   GSL_SET_COMPLEX(&ihdt, 0.0, 1.0 / tstep);
+
+  if (fdebug) {
+    fprintf(fdebug, "ihΔt = %0.4f+%0.4fi", GSL_REAL(ihdt), GSL_IMAG(ihdt));
+  }
   
   gsl_matrix_complex_set_identity(U->A);
   gsl_matrix_complex_scale(U->A, ihdt);
@@ -107,61 +122,41 @@ void set_timeevol_halves(timeevol_halves *U, timeevol_halves_workspace *w,
     fprintf(fdebug, "B = \n");
     fwrite_matrix_complex(fdebug, U->B);
   }
-}
 
-void timeevol_halves_alloc(gsl_matrix_complex **A, gsl_matrix_complex **B,
-		       const gsl_matrix *H0, const gsl_matrix *H1,
-		       const double tstep, FILE *fdebug)
-{
-  const size_t N = H0->size1;
-  timeevol_halves U;
-  timeevol_halves_workspace *w = timeevol_halves_workspace_alloc(N);
-
-  U.A = gsl_matrix_complex_alloc(N, N);
-  U.B = gsl_matrix_complex_alloc(N, N);
-
-  set_timeevol_halves(&U, w, H0, H1, tstep, fdebug);
-  *A = U.A;
-  *B = U.B;
-  
-  timeevol_halves_workspace_free(w);
-}
-
-void timeevol_invert_alloc(gsl_matrix_complex **Ainv, gsl_matrix_complex *A)
-{
-  const int N = A->size1;
-  *Ainv = gsl_matrix_complex_alloc(N, N);
-  gsl_permutation *Ap = gsl_permutation_alloc(N);
   int Asgn;
-  gsl_linalg_complex_LU_decomp(A, Ap, &Asgn);
-  gsl_linalg_complex_LU_invert(A, Ap, *Ainv);
-  gsl_permutation_free(Ap);
+  gsl_matrix_complex_memcpy(U->ALU, U->A);
+  gsl_linalg_complex_LU_decomp(U->ALU, U->ALUp, &Asgn);
 }
 
-void set_timeevol(gsl_matrix_complex *U, const gsl_matrix *H0, const gsl_matrix *H1, const double hstep, const double tstep, FILE *fdebug)
+void set_timeevol(gsl_matrix_complex *Uout, const gsl_matrix *H0, const gsl_matrix *H1, const double hstep, const double tstep, FILE *fdebug)
 {
-  gsl_matrix_complex *A, *B, *Ainv;
+  const int N = H0->size1;
   
-  timeevol_halves_alloc(&A, &B, H0, H1, tstep, fdebug);
-  timeevol_invert_alloc(&Ainv, A);
+  timeevol_halves *U = timeevol_halves_alloc(N);
+  
+  timeevol_halves_workspace *w = timeevol_halves_workspace_alloc(N);
+  set_timeevol_halves(U, w, H0, H1, tstep, fdebug);
+  timeevol_halves_workspace_free(w);
+
+  gsl_matrix_complex *Ainv = gsl_matrix_complex_alloc(N, N);
+  gsl_linalg_complex_LU_invert(U->ALU, U->ALUp, Ainv);
   
   gsl_complex one, zero;
   GSL_SET_COMPLEX(&one, 1.0, 0.0);
   GSL_SET_COMPLEX(&zero, 0.0, 0.0);
-  gsl_blas_zgemm(CblasNoTrans, CblasNoTrans, one, Ainv, B, zero, U);
+  gsl_blas_zgemm(CblasNoTrans, CblasNoTrans, one, Ainv, U->B, zero, Uout);
   
   if (fdebug) {
     fprintf(fdebug, "Ainv = \n");
     fwrite_matrix_complex(fdebug, Ainv);
     fprintf(fdebug, "B = \n");    
-    fwrite_matrix_complex(fdebug, B);
+    fwrite_matrix_complex(fdebug, U->B);
     fprintf(fdebug, "U = \n");    
-    fwrite_matrix_complex(fdebug, U);
+    fwrite_matrix_complex(fdebug, Uout);
   } 
   
-  gsl_matrix_complex_free(A);
+  timeevol_halves_free(U);
   gsl_matrix_complex_free(Ainv);
-  gsl_matrix_complex_free(B);
 }
 
 void eigen_solve_alloc(const gsl_matrix *Hin, gsl_vector **eval, gsl_matrix **evec)
@@ -253,26 +248,6 @@ void write_hamiltonian(const char *prefix, const gsl_matrix *H)
 
   
   fclose(fout);
-}
-
-void fwrite_matrix_complex(FILE *f, const gsl_matrix_complex *M)
-{
-  fprintf(f, "j");
-  for (int k = 0; k < M->size2; k++) {
-    fprintf(f, "\tk%d", k);
-  }
-  fprintf(f, "\n");
-
-  for (int j = 0; j < M->size1; j++) {
-    fprintf(f, "%d", j);
-
-    for (int k = 0; k < M->size2; k++) {
-      const gsl_complex Mjk = gsl_matrix_complex_get(M, j, k);
-      fprintf(f, "\t%0.4f+%0.4fi", GSL_REAL(Mjk), GSL_IMAG(Mjk));
-    }
-
-    fprintf(f, "\n");
-  }
 }
 
 void write_energies(const char *prefix, const gsl_matrix *Psis, const gsl_vector *Es)

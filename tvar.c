@@ -9,6 +9,7 @@
 #include <gsl/gsl_eigen.h>
 #include <gsl/gsl_matrix.h>
 #include <gsl/gsl_matrix_complex_double.h>
+#include <gsl/gsl_permutation.h>
 #include <gsl/gsl_vector.h>
 #include <gsl/gsl_vector_complex_double.h>
 
