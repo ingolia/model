@@ -38,3 +38,25 @@ void fwrite_matrix_complex(FILE *f, const gsl_matrix_complex *M)
   }
 }
 
+void terminal_graph_abs2(const gsl_vector_complex *psi, const int nlines, const double ymax)
+{
+  gsl_vector *h = gsl_vector_alloc(psi->size);
+  for (int i = 0; i < psi->size; i++) {
+    gsl_vector_set(h, i, gsl_complex_abs2(gsl_vector_complex_get(psi, i)));
+  }
+
+  double lineheight = ymax / ((double) nlines);
+  
+  for (int j = nlines; j > 0; j--) {
+    double hthresh = (((double) j) - 0.5) * lineheight;
+    printf("%0.4f |", hthresh);
+    for (int i = 0; i < psi->size; i++) {
+      if (gsl_vector_get(h, i) > hthresh) {
+        putchar('*');
+      } else {
+        putchar(' ');
+      }
+    }
+    puts("|");
+  }
+}

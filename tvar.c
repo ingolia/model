@@ -75,10 +75,10 @@ void unperturbed(void)
   for (int tstep = 0; (tstep * TSTEP) <= FREE_TFINAL; tstep++) {
     const double t = tstep * TSTEP;
 
-    timeevol_state(psi0, U0, psinew);
+    timeevol_state(psinew, U0, psi0);
     gsl_vector_complex_memcpy(psi0, psinew);
 
-    timeevol_state(psi1, U0, psinew);
+    timeevol_state(psinew, U0, psi1);
     gsl_vector_complex_memcpy(psi1, psinew);
 
     if (tstep % WRITEEVERY == 0) {
@@ -102,6 +102,10 @@ void unperturbed(void)
   fclose(psi0ph);
   fclose(psi1mag);
   fclose(psi1ph);
+
+  terminal_graph_abs2(psi0, 24, 1.0/32.0);
+
+  terminal_graph_abs2(psi1, 24, 1.0/32.0);
 }
 
 #define TFINAL 4.0
@@ -175,7 +179,10 @@ void iterate(void)
     timeevol_state(psinew, U, psi);
 
     if (tstep % WRITEEVERY == 0) {
+      printf("\033[2J\033[H");
       printf("t = %0.6f (tstep %6d)\n", t, tstep);
+      terminal_graph_abs2(psi, 24, 1.0/32.0);
+      
       fprintf(psi1t, "%0.6f", t);
       fwrite_evolved_psi(psi1t, psi);
     }

@@ -13,7 +13,7 @@ tetest: tetest.o schutil.o writing.o
 
 d1p1.o: d1p1.c schutil.h
 
-tvar.o: tvar.c schutil.h
+tvar.o: tvar.c schutil.h writing.h
 
 tetest.o: tetest.c schutil.h writing.h
 
