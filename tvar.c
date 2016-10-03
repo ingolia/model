@@ -126,7 +126,7 @@ void unperturbed(void)
     gsl_matrix_complex_memcpy(Utmp, U0ttl);
     gsl_blas_zgemm(CblasNoTrans, CblasNoTrans, one, U0, Utmp, zero, U0ttl);
 
-    if (tstep % 4 == 0) {
+    if (tstep % 64 == 0) {
       printf("U0ttl at %0.2f: ", t);
       check_unitarity(U0ttl, NULL);
 
@@ -248,7 +248,7 @@ void iterate(void)
     gsl_matrix_complex_memcpy(Utmp, U1ttl);
     gsl_blas_zgemm(CblasNoTrans, CblasNoTrans, one, U1, Utmp, zero, U1ttl);
 
-    if (tstep % 4 == 0) {
+    if (tstep % 64 == 0) {
       printf("U1ttl at %0.2f: ", t);
       check_unitarity(U1ttl, NULL);
       fprintf(psi1t, "%0.6f", t);

@@ -15,19 +15,18 @@
 
 #include "schutil.h"
 
+#ifdef HAVE_INLINE
+#warning "Have inline!"
+#endif
+
 void check_deviation(const gsl_matrix *Z, size_t *imax, size_t *jmax, double *absmax, double *norm);
 
 void set_hamiltonian(gsl_matrix *H, const gsl_vector *V, const double mass, const double hstep)
 {
-  const int npts = H->size1-2;
+  const size_t npts = H->size1-2;
 
-  if (H->size1 != H->size2) {
-    fprintf(stderr, "set_hamiltonian: non-square H");
-    exit(1);
-  } else if (H->size1 != V->size) {
-    fprintf(stderr, "set_hamiltonian: size of H and V don't match");
-    exit(1);
-  }
+  ASSERT_SQUARE(H, "set_hamiltonian: H not square");
+  ASSERT_SIZE1(H, V->size, "set_hamiltonian: dim(H) != dim(V)");
   
   gsl_matrix_set_all(H, 0.0);
 
@@ -42,53 +41,90 @@ void set_hamiltonian(gsl_matrix *H, const gsl_vector *V, const double mass, cons
   }
 }
 
-void timeevol_halves_alloc(gsl_matrix_complex **A, gsl_matrix_complex **B,
-		       const gsl_matrix *H0, const gsl_matrix *H1,
-		       const double tstep, FILE *fdebug)
+timeevol_halves_workspace *timeevol_halves_workspace_alloc(const size_t N)
 {
-  const int N = H0->size1;
-  if (H0->size2 != N) {
-    fprintf(stderr, "set_timeevol: non-square H0");
-    exit(1);
-  } else if (H1->size1 != N || H1->size2 != N) {
-    fprintf(stderr, "set_timeevol: H1 does not match H0");
-    exit(1);
-  }
+  timeevol_halves_workspace *w= malloc(sizeof(timeevol_halves_workspace));
+  w->halfH = gsl_matrix_complex_alloc(N, N);
+  return w;
+}
+
+void timeevol_halves_workspace_free(timeevol_halves_workspace *w)
+{
+  gsl_matrix_complex_free(w->halfH);
+  free(w);
+}
+
+void set_timeevol_workspace_halfH(timeevol_halves_workspace *w,
+			    const gsl_matrix *H0, const gsl_matrix *H1,
+			    const double tstep)
+{
+  const size_t N = H0->size1;
   
-  gsl_matrix_complex *halfH = gsl_matrix_complex_alloc(N, N);
   for (size_t i = 0; i < N; i++) {
     for (size_t j = 0; j < N; j++) {
-      gsl_complex Hij;
-      GSL_SET_COMPLEX(&Hij, 0.25 * (gsl_matrix_get(H0, i, j) + gsl_matrix_get(H1, i, j)), 0.0);
-      gsl_matrix_complex_set(halfH, i, j, Hij);
+      gsl_complex *halfHij = gsl_matrix_complex_ptr(w->halfH, i, j);
+      GSL_SET_COMPLEX(halfHij, 0.25 * (gsl_matrix_get(H0, i, j) + gsl_matrix_get(H1, i, j)), 0.0);
     }
   }
+}
 
+void set_timeevol_halves(timeevol_halves *U, timeevol_halves_workspace *w,
+		     const gsl_matrix *H0, const gsl_matrix *H1,
+		     const double tstep, FILE *fdebug)
+{
+  const size_t N = H0->size1;
+
+  ASSERT_SQUARE(H0, "timeevol_halves: H0 not square");
+  ASSERT_SQUARE_SIZE(H1, N, "timeevol_halves: H1 bad size");
+  ASSERT_SQUARE_SIZE(w->halfH, N, "timeevol_halves: workspace->halfH bad size");
+  ASSERT_SQUARE_SIZE(U->A, N, "timeevol_halves: U->A bad size");
+  ASSERT_SQUARE_SIZE(U->B, N, "timeevol_halves: U->B bad size");
+
+  set_timeevol_workspace_halfH(w, H0, H1, tstep);
+  
   if (fdebug) {
     fprintf(fdebug, "halfH = \n");
-    fwrite_matrix_complex(fdebug, halfH);
+    fwrite_matrix_complex(fdebug, w->halfH);
   }
   
   gsl_complex ihdt;
   GSL_SET_COMPLEX(&ihdt, 0.0, 1.0 / tstep);
   
-  
-  *A = gsl_matrix_complex_alloc(N, N);
-  gsl_matrix_complex_set_identity(*A);
-  gsl_matrix_complex_scale(*A, ihdt);
-  gsl_matrix_complex_sub(*A, halfH);
+  gsl_matrix_complex_set_identity(U->A);
+  gsl_matrix_complex_scale(U->A, ihdt);
+  gsl_matrix_complex_sub(U->A, w->halfH);
 
   if (fdebug) {
     fprintf(fdebug, "A = \n");
-    fwrite_matrix_complex(fdebug, *A);
+    fwrite_matrix_complex(fdebug, U->A);
   }
 
-  *B = gsl_matrix_complex_alloc(N, N);
-  gsl_matrix_complex_set_identity(*B);
-  gsl_matrix_complex_scale(*B, ihdt);
-  gsl_matrix_complex_add(*B, halfH);
+  gsl_matrix_complex_set_identity(U->B);
+  gsl_matrix_complex_scale(U->B, ihdt);
+  gsl_matrix_complex_add(U->B, w->halfH);
 
-  gsl_matrix_complex_free(halfH);
+  if (fdebug) {
+    fprintf(fdebug, "B = \n");
+    fwrite_matrix_complex(fdebug, U->B);
+  }
+}
+
+void timeevol_halves_alloc(gsl_matrix_complex **A, gsl_matrix_complex **B,
+		       const gsl_matrix *H0, const gsl_matrix *H1,
+		       const double tstep, FILE *fdebug)
+{
+  const size_t N = H0->size1;
+  timeevol_halves U;
+  timeevol_halves_workspace *w = timeevol_halves_workspace_alloc(N);
+
+  U.A = gsl_matrix_complex_alloc(N, N);
+  U.B = gsl_matrix_complex_alloc(N, N);
+
+  set_timeevol_halves(&U, w, H0, H1, tstep, fdebug);
+  *A = U.A;
+  *B = U.B;
+  
+  timeevol_halves_workspace_free(w);
 }
 
 void timeevol_invert_alloc(gsl_matrix_complex **Ainv, gsl_matrix_complex *A)
@@ -314,11 +350,8 @@ void check_symmetry(const gsl_matrix *M)
 
 void check_unitarity(const gsl_matrix_complex *M, FILE *fdebug)
 {
-  if (M->size1 != M->size2) {
-    fprintf(stderr, "check_unitarity: non-square M");
-    exit(1);
-  }
-
+  ASSERT_SQUARE(M, "check_unitarity: not square");
+  
   gsl_matrix_complex *Mt = gsl_matrix_complex_alloc(M->size2, M->size1);
   for (int i = 0; i < M->size1; i++) {
     for (int j = 0; j < M->size2; j++) {
