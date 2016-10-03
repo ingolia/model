@@ -110,7 +110,7 @@ void unperturbed(void)
 
 #define TFINAL 4.0
 
-#define V0MAX 75.0
+#define V0MAX 5.0
 
 #define TSTART   0.5
 #define THOLD    1.0
@@ -181,7 +181,9 @@ void iterate(void)
     if (tstep % WRITEEVERY == 0) {
       printf("\033[2J\033[H");
       printf("t = %0.6f (tstep %6d)\n", t, tstep);
-      terminal_graph_abs2(psi, 24, 1.0/32.0);
+      terminal_graph_abs2(psi, 24, 1.0/16.0);
+      puts("");
+      terminal_graph_phase(psi, 8);
       
       fprintf(psi1t, "%0.6f", t);
       fwrite_evolved_psi(psi1t, psi);
