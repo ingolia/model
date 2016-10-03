@@ -27,7 +27,7 @@
 
 #define TFINAL 20.0
 
-#define V0MAX 16.0
+#define V0MAX 20.0
 
 #define TSTART   2.0
 #define THOLD    4.0
@@ -37,6 +37,11 @@
 #define STATE0 2
 
 void vtstep(gsl_vector *V, int tstep)
+{
+  vtstep_jump(V, tstep);
+}
+
+double vtscale(int tstep)
 {
   const double t = tstep * TSTEP;
 
@@ -53,6 +58,26 @@ void vtstep(gsl_vector *V, int tstep)
     v0 = 0.0;
   }
 
+  return v0;
+}
+
+void vtstep_jump(gsl_vector *V, int tstep)
+{
+  double v0 = vtscale(tstep);
+
+  for (int i = 1; i <= MIDDLE; i++) {
+    gsl_vector_set(V, i, 0);
+  }
+  
+  for (int i = MIDDLE + 1; i < (V->size - 1); i++) {
+    gsl_vector_set(V, i, v0);
+  }
+}
+
+void vtstep_force(gsl_vector *V, int tstep)
+{
+  double v0 = vtscale(tstep);
+  
   double scale = 1.0 / ((double) V->size);
   
   for (int i = 1; i < (V->size - 1); i++) {
@@ -60,10 +85,63 @@ void vtstep(gsl_vector *V, int tstep)
   }
 }
 
+void stationary(void);
+void evolve(void);
 
 int main(void)
 {
+  stationary();
+  evolve();
+}
 
+void stationary(void)
+{
+  gsl_vector *V = gsl_vector_calloc(STATESIZE);
+  
+  gsl_matrix *H0 = gsl_matrix_alloc(STATESIZE, STATESIZE);
+
+  set_hamiltonian(H0, V, MASS, HSTEP);
+
+  gsl_vector *eval;
+  gsl_matrix *evec;
+  gsl_vector_complex *psi;
+  
+  eigen_solve_alloc(H0, &eval, &evec);
+
+  FILE *f = fopen("tvardata/eig-v0-abs2.txt", "w");
+  
+  for (int j = STATE0; j < evec->size2; j++) {
+    eigen_norm_state_alloc(evec, j, &psi);
+    fprintf(f, "state%04d", (j - STATE0));
+    fwrite_vector_complex_abs2(f, psi);
+    gsl_vector_complex_free(psi);
+  }
+  fclose(f);
+
+  gsl_matrix_free(evec);
+  gsl_vector_free(eval);
+  
+  vtstep(V, 1 + ((int) (THOLD / TSTEP)));
+  set_hamiltonian(H0, V, MASS, HSTEP);
+  eigen_solve_alloc(H0, &eval, &evec);
+
+  f = fopen("tvardata/eig-v1-abs2.txt", "w");
+  
+  for (int j = STATE0; j < evec->size2; j++) {
+    eigen_norm_state_alloc(evec, j, &psi);
+    fprintf(f, "state%04d", (j - STATE0));
+    fwrite_vector_complex_abs2(f, psi);
+    gsl_vector_complex_free(psi);
+  }
+  fclose(f);
+
+  gsl_matrix_free(evec);
+  gsl_vector_free(eval);
+    
+}
+
+void evolve(void)
+{
   gsl_vector *V = gsl_vector_calloc(STATESIZE);
   
   gsl_matrix *H0 = gsl_matrix_alloc(STATESIZE, STATESIZE);
