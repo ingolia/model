@@ -168,7 +168,6 @@ gsl_vector_complex *iterate_solve()
   GSL_SET_COMPLEX(&one, 1.0, 0.0);
   GSL_SET_COMPLEX(&zero, 0.0, 0.0);
 
-  timeevol_halves_workspace *w = timeevol_halves_workspace_alloc(STATESIZE);
   timeevol_halves *U = timeevol_halves_alloc(STATESIZE);
 
   gsl_vector_complex_memcpy(psiold, psi0);
@@ -181,10 +180,8 @@ gsl_vector_complex *iterate_solve()
     vtstep(V, tstep+1);
     set_hamiltonian(Hnext, V, MASS, HSTEP);
 
-    set_timeevol_halves(U, w, Hprev, Hnext, TSTEP, NULL);
-
-    gsl_blas_zgemv(CblasNoTrans, one, U->B, psiold, zero, psinew);    
-    gsl_linalg_complex_LU_svx(U->ALU, U->ALUp, psinew);
+    set_timeevol_halves(U, Hprev, Hnext, TSTEP, NULL);
+    timeevol_state(psinew, U, psiold);
 
     if (tstep % 64 == 0) {
       printf("Solving at %0.2f\n", t);
