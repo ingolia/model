@@ -17,7 +17,7 @@
 #include "schutil.h"
 #include "writing.h"
 
-#define NPTS 31
+#define NPTS 127
 #define MIDDLE ((NPTS+1)/2)
 #define STATESIZE (NPTS + 2)
 
@@ -25,7 +25,7 @@
 #define HSTEP (1.0/64.0)
 #define TSTEP (1.0/2048.0)
 
-#define TFINAL 0.5
+#define TFINAL 1.0
 
 #define V0MAX 75.0
 

@@ -14,6 +14,7 @@
 #include <gsl/gsl_vector_complex_double.h>
 
 #include "schutil.h"
+#include "writing.h"
 
 #define NPTS 127
 #define MIDDLE ((NPTS+1)/2)
@@ -22,58 +23,17 @@
 #define MASS 1.0
 #define HSTEP (1.0/64.0)
 #define TSTEP (1.0/1024.0)
+#define WRITEEVERY 8
 
 void unperturbed(void);
 void iterate(void);
-void fwrite_evolved_psi(FILE *f, const gsl_vector_complex *psi0, const gsl_matrix_complex *Ut0t);
-void fwrite_evolved_psi_magnitude(FILE *f, const gsl_vector_complex *psi0, const gsl_matrix_complex *Ut0t);
-void fwrite_evolved_psi_phase(FILE *f, const gsl_vector_complex *psi0, const gsl_matrix_complex *Ut0t);
+
+void fwrite_evolved_psi(FILE *f, const gsl_vector_complex *psi);
+void fwrite_evolved_psi_magnitude(FILE *f, const gsl_vector_complex *psi);
+void fwrite_evolved_psi_phase(FILE *f, const gsl_vector_complex *psi);
 
 int main(void)
 {
-  gsl_vector *V = gsl_vector_calloc(STATESIZE);
-  
-  gsl_matrix *H0 = gsl_matrix_alloc(STATESIZE, STATESIZE);
-  gsl_matrix *H1 = gsl_matrix_alloc(STATESIZE, STATESIZE);
-
-  set_hamiltonian(H0, V, MASS, HSTEP);
-  gsl_vector_set(V, MIDDLE, 0.0);
-  set_hamiltonian(H1, V, MASS, HSTEP);
-
-  write_hamiltonian("tvardata/v0-H0", H0);
-  write_hamiltonian("tvardata/v0-H1", H1);
-
-  gsl_matrix_complex *U0 = gsl_matrix_complex_alloc(STATESIZE, STATESIZE);
-  
-  FILE *fdebug = fopen("tvardata/v0-U.txt", "w");
-  set_timeevol(U0, H0, H1, HSTEP, TSTEP, fdebug);
-  check_unitarity(U0, fdebug);
-  fclose(fdebug);
-  
-  gsl_vector_set(V, MIDDLE, 1.0);
-  set_hamiltonian(H1, V, MASS, HSTEP);  
-
-  write_hamiltonian("tvardata/v1-H0", H0);
-  write_hamiltonian("tvardata/v1-H1", H1);
-  
-  gsl_matrix_complex *U1 = gsl_matrix_complex_alloc(STATESIZE, STATESIZE);
-
-  fdebug = fopen("tvardata/v1-U.txt", "w");
-  set_timeevol(U1, H0, H1, HSTEP, TSTEP, fdebug);
-  check_unitarity(U1, fdebug);
-  fclose(fdebug);
-  
-  gsl_matrix_free(H0);
-  gsl_matrix_free(H1);
-
-  gsl_matrix_complex *DU = gsl_matrix_complex_alloc(STATESIZE, STATESIZE);
-  gsl_matrix_complex_memcpy(DU, U1);
-  gsl_matrix_complex_sub(DU, U0);
-
-  FILE *f = fopen("tvardata/DU.txt", "w");
-  fwrite_matrix_complex(f, DU);
-  fclose(f);
-
   unperturbed();
   iterate();
 }
@@ -106,42 +66,35 @@ void unperturbed(void)
   FILE *psi0ph = fopen("tvardata/psi-v0-st0-ph.txt", "w");
   FILE *psi1mag = fopen("tvardata/psi-v0-st1-mag.txt", "w");
   FILE *psi1ph = fopen("tvardata/psi-v0-st1-ph.txt", "w");
-  
-  gsl_matrix_complex *U0 = gsl_matrix_complex_alloc(STATESIZE, STATESIZE);
-  set_timeevol(U0, H0, H0, HSTEP, TSTEP, NULL);
-  printf("U0           : ");
-  check_unitarity(U0, NULL);
 
-  gsl_matrix_complex *Utmp = gsl_matrix_complex_alloc(STATESIZE, STATESIZE);
-  gsl_matrix_complex *U0ttl = gsl_matrix_complex_alloc(STATESIZE, STATESIZE);
+  timeevol_halves *U0 = timeevol_halves_alloc(STATESIZE);
+  set_timeevol_halves(U0, H0, H0, TSTEP, NULL);
 
-  gsl_matrix_complex_set_identity(U0ttl);
-  
-  gsl_complex one, zero;
-  GSL_SET_COMPLEX(&one, 1.0, 0.0);
-  GSL_SET_COMPLEX(&zero, 0.0, 0.0);
+  gsl_vector_complex *psinew = gsl_vector_complex_alloc(STATESIZE);
   
   for (int tstep = 0; (tstep * TSTEP) <= FREE_TFINAL; tstep++) {
     const double t = tstep * TSTEP;
 
-    gsl_matrix_complex_memcpy(Utmp, U0ttl);
-    gsl_blas_zgemm(CblasNoTrans, CblasNoTrans, one, U0, Utmp, zero, U0ttl);
+    timeevol_state(psi0, U0, psinew);
+    gsl_vector_complex_memcpy(psi0, psinew);
 
-    if (tstep % 64 == 0) {
-      printf("U0ttl at %0.2f: ", t);
-      check_unitarity(U0ttl, NULL);
+    timeevol_state(psi1, U0, psinew);
+    gsl_vector_complex_memcpy(psi1, psinew);
+
+    if (tstep % WRITEEVERY == 0) {
+      printf("t = %0.6f (tstep %6d)\n", t, tstep);
 
       fprintf(psi0mag, "%0.6f", t);
-      fwrite_evolved_psi_magnitude(psi0mag, psi0, U0ttl);
+      fwrite_evolved_psi_magnitude(psi0mag, psi0);
 
       fprintf(psi0ph, "%0.6f", t);
-      fwrite_evolved_psi_phase(psi0ph, psi0, U0ttl);
+      fwrite_evolved_psi_phase(psi0ph, psi0);
 
       fprintf(psi1mag, "%0.6f", t);
-      fwrite_evolved_psi_magnitude(psi1mag, psi1, U0ttl);
+      fwrite_evolved_psi_magnitude(psi1mag, psi1);
       
       fprintf(psi1ph, "%0.6f", t);
-      fwrite_evolved_psi_phase(psi1ph, psi1, U0ttl);
+      fwrite_evolved_psi_phase(psi1ph, psi1);
     }
   }
 
@@ -199,125 +152,60 @@ void iterate(void)
 
   gsl_vector *eval;
   gsl_matrix *evec;
-  gsl_vector_complex *psi0;
+  gsl_vector_complex *psi;
   
   eigen_solve_alloc(H0, &eval, &evec);
 
-  eigen_norm_state_alloc(evec, STATE0, &psi0);
+  eigen_norm_state_alloc(evec, STATE0, &psi);
 
-  FILE *psi0t = fopen("tvardata/psi-v0-t.txt", "w");
   FILE *psi1t = fopen("tvardata/psi-v1-t.txt", "w");
   
-  gsl_matrix_complex *U0 = gsl_matrix_complex_alloc(STATESIZE, STATESIZE);
-  set_timeevol(U0, H0, H0, HSTEP, TSTEP, NULL);
-  printf("U0           : ");
-  check_unitarity(U0, NULL);
-
-  gsl_matrix_complex *Utmp = gsl_matrix_complex_alloc(STATESIZE, STATESIZE);
-  gsl_matrix_complex *U0ttl = gsl_matrix_complex_alloc(STATESIZE, STATESIZE);
-  gsl_matrix_complex *U1ttl = gsl_matrix_complex_alloc(STATESIZE, STATESIZE);
-
-  gsl_matrix_complex_set_identity(U0ttl);
-  gsl_matrix_complex_set_identity(U1ttl);
-  
-  gsl_complex one, zero;
-  GSL_SET_COMPLEX(&one, 1.0, 0.0);
-  GSL_SET_COMPLEX(&zero, 0.0, 0.0);
+  timeevol_halves *U = timeevol_halves_alloc(STATESIZE);
+  gsl_vector_complex *psinew = gsl_vector_complex_calloc(STATESIZE);
   
   for (int tstep = 0; (tstep * TSTEP) <= TFINAL; tstep++) {
     const double t = tstep * TSTEP;
-
-    gsl_matrix_complex *U1 = gsl_matrix_complex_alloc(STATESIZE, STATESIZE);
 
     vtstep(V, tstep);
     set_hamiltonian(Hprev, V, MASS, HSTEP);
     vtstep(V, tstep+1);
     set_hamiltonian(Hnext, V, MASS, HSTEP);
 
-    set_timeevol(U1, Hprev, Hnext, HSTEP, TSTEP, NULL);
+    set_timeevol_halves(U, Hprev, Hnext, TSTEP, NULL);
+    timeevol_state(psinew, U, psi);
 
-    /*
-    gsl_matrix_complex_memcpy(Utmp, U0ttl);
-    gsl_blas_zgemm(CblasNoTrans, CblasNoTrans, one, U0, Utmp, zero, U0ttl);
-    printf("U0ttl at %0.2f: ", tstep*TSTEP);
-    check_unitarity(U0ttl, NULL);
-
-    fprintf(psi0t, "%0.6f", tstep*TSTEP);
-    fwrite_evolved_psi(psi0t, psi0, U0ttl);
-    */
-    
-    gsl_matrix_complex_memcpy(Utmp, U1ttl);
-    gsl_blas_zgemm(CblasNoTrans, CblasNoTrans, one, U1, Utmp, zero, U1ttl);
-
-    if (tstep % 64 == 0) {
-      printf("U1ttl at %0.2f: ", t);
-      check_unitarity(U1ttl, NULL);
+    if (tstep % WRITEEVERY == 0) {
+      printf("t = %0.6f (tstep %6d)\n", t, tstep);
       fprintf(psi1t, "%0.6f", t);
-      fwrite_evolved_psi(psi1t, psi0, U1ttl);
+      fwrite_evolved_psi(psi1t, psi);
     }
+
+    gsl_vector_complex_memcpy(psi, psinew);
   }
 
-  gsl_matrix_complex *DU = gsl_matrix_complex_alloc(STATESIZE, STATESIZE);
-  gsl_matrix_complex_memcpy(DU, U1ttl);
-  gsl_matrix_complex_sub(DU, U0ttl);
-
-  FILE *f = fopen("tvardata/iterated.txt", "w");
-  fwrite_matrix_complex(f, U0ttl);
-  fwrite_matrix_complex(f, U1ttl);
-  fwrite_matrix_complex(f, DU);
-  fclose(f);  
-
-  fclose(psi0t);
   fclose(psi1t);
 }
 
-void fwrite_evolved_psi(FILE *f, const gsl_vector_complex *psi0, const gsl_matrix_complex *Ut0t)
+void fwrite_evolved_psi(FILE *f, const gsl_vector_complex *psi)
 {
-  gsl_complex one, zero;
-  GSL_SET_COMPLEX(&one, 1.0, 0.0);
-  GSL_SET_COMPLEX(&zero, 0.0, 0.0);
-
-  gsl_vector_complex *psit = gsl_vector_complex_alloc(STATESIZE);
-  gsl_blas_zgemv(CblasNoTrans, one, Ut0t, psi0, zero, psit);
-
   for (int j = 0; j < STATESIZE; j++) {
-    fprintf(f, "\t%0.6f", gsl_complex_abs2(gsl_vector_complex_get(psit, j)));
+    fprintf(f, "\t%0.6f", gsl_complex_abs2(gsl_vector_complex_get(psi, j)));
   }
   fprintf(f, "\n");
-
-  gsl_vector_complex_free(psit);
 }
 
-void fwrite_evolved_psi_magnitude(FILE *f, const gsl_vector_complex *psi0, const gsl_matrix_complex *Ut0t)
+void fwrite_evolved_psi_magnitude(FILE *f, const gsl_vector_complex *psi)
 {
-  gsl_complex one, zero;
-  GSL_SET_COMPLEX(&one, 1.0, 0.0);
-  GSL_SET_COMPLEX(&zero, 0.0, 0.0);
-
-  gsl_vector_complex *psit = gsl_vector_complex_alloc(STATESIZE);
-  gsl_blas_zgemv(CblasNoTrans, one, Ut0t, psi0, zero, psit);
-
   for (int j = 0; j < STATESIZE; j++) {
-    fprintf(f, "\t%0.6f", gsl_complex_abs(gsl_vector_complex_get(psit, j)));
+    fprintf(f, "\t%0.6f", gsl_complex_abs(gsl_vector_complex_get(psi, j)));
   }
   fprintf(f, "\n");
-
-  gsl_vector_complex_free(psit);
 }
 
-void fwrite_evolved_psi_phase(FILE *f, const gsl_vector_complex *psi0, const gsl_matrix_complex *Ut0t)
+void fwrite_evolved_psi_phase(FILE *f, const gsl_vector_complex *psi)
 {
-  gsl_complex one, zero;
-  GSL_SET_COMPLEX(&one, 1.0, 0.0);
-  GSL_SET_COMPLEX(&zero, 0.0, 0.0);
-
-  gsl_vector_complex *psit = gsl_vector_complex_alloc(STATESIZE);
-  gsl_blas_zgemv(CblasNoTrans, one, Ut0t, psi0, zero, psit);
-
   for (int j = 0; j < STATESIZE; j++) {
-    fprintf(f, "\t%0.3f", gsl_complex_arg(gsl_vector_complex_get(psit, j)));
+    fprintf(f, "\t%0.3f", gsl_complex_arg(gsl_vector_complex_get(psi, j)));
   }
   fprintf(f, "\n");
-
-  gsl_vector_complex_free(psit);
 }
