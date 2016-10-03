@@ -84,3 +84,27 @@ void terminal_graph_phase(const gsl_vector_complex *psi, const int nlines)
     puts("|");
   }
 }
+
+void fwrite_vector_complex_abs2(FILE *f, const gsl_vector_complex *psi)
+{
+  for (int j = 0; j < psi->size; j++) {
+    fprintf(f, "\t%0.6f", gsl_complex_abs2(gsl_vector_complex_get(psi, j)));
+  }
+  fprintf(f, "\n");
+}
+
+void fwrite_vector_complex_abs(FILE *f, const gsl_vector_complex *psi)
+{
+  for (int j = 0; j < psi->size; j++) {
+    fprintf(f, "\t%0.6f", gsl_complex_abs(gsl_vector_complex_get(psi, j)));
+  }
+  fprintf(f, "\n");
+}
+
+void fwrite_vector_complex_arg(FILE *f, const gsl_vector_complex *psi)
+{
+  for (int j = 0; j < psi->size; j++) {
+    fprintf(f, "\t%0.3f", gsl_complex_arg(gsl_vector_complex_get(psi, j)));
+  }
+  fprintf(f, "\n");
+}

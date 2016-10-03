@@ -61,10 +61,6 @@ void vtstep(gsl_vector *V, int tstep)
 }
 
 
-void fwrite_evolved_psi(FILE *f, const gsl_vector_complex *psi);
-void fwrite_evolved_psi_magnitude(FILE *f, const gsl_vector_complex *psi);
-void fwrite_evolved_psi_phase(FILE *f, const gsl_vector_complex *psi);
-
 int main(void)
 {
 
@@ -109,35 +105,11 @@ int main(void)
       terminal_graph_phase(psi, 8);
       
       fprintf(psi1t, "%0.6f", t);
-      fwrite_evolved_psi(psi1t, psi);
+      fwrite_vector_complex_abs2(psi1t, psi);
     }
 
     gsl_vector_complex_memcpy(psi, psinew);
   }
 
   fclose(psi1t);
-}
-
-void fwrite_evolved_psi(FILE *f, const gsl_vector_complex *psi)
-{
-  for (int j = 0; j < STATESIZE; j++) {
-    fprintf(f, "\t%0.6f", gsl_complex_abs2(gsl_vector_complex_get(psi, j)));
-  }
-  fprintf(f, "\n");
-}
-
-void fwrite_evolved_psi_magnitude(FILE *f, const gsl_vector_complex *psi)
-{
-  for (int j = 0; j < STATESIZE; j++) {
-    fprintf(f, "\t%0.6f", gsl_complex_abs(gsl_vector_complex_get(psi, j)));
-  }
-  fprintf(f, "\n");
-}
-
-void fwrite_evolved_psi_phase(FILE *f, const gsl_vector_complex *psi)
-{
-  for (int j = 0; j < STATESIZE; j++) {
-    fprintf(f, "\t%0.3f", gsl_complex_arg(gsl_vector_complex_get(psi, j)));
-  }
-  fprintf(f, "\n");
 }
