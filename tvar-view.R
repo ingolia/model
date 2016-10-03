@@ -21,7 +21,7 @@ image(z=as.matrix(psi1), zlim=yrange, col=topo.colors(32))
 
 dev.off()
 pdf("animation.pdf", useDingbats=FALSE)
-for (i in seq(9,512,8)) {
+for (i in seq(9,nrow(psi1),8)) {
   plot(t(psi1)[,i], type="l", ylim=yrange, lwd=2)
   for (j in seq(i-1,i-3,-1)) {
     lines(t(psi1)[,j])
@@ -29,6 +29,6 @@ for (i in seq(9,512,8)) {
   for (j in seq(i-4,i-8,-1)) {
     lines(t(psi1)[,j], col="grey")
   }
-  title(main=sprintf("%d to %d", i, i-19))
+  title(main=sprintf("%d to %d", i, i-8))
 }
 dev.off()
