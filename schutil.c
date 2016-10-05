@@ -177,7 +177,7 @@ void eigen_solve_alloc(const gsl_matrix *Hin, gsl_vector **eval, gsl_matrix **ev
   gsl_eigen_symmv_sort(*eval, *evec, GSL_EIGEN_SORT_VAL_ASC);
 }
 
-void eigen_norm_state_alloc(const gsl_matrix *evec, int state, gsl_vector_complex **psi_state)
+void eigen_norm_state_alloc(const gsl_matrix *evec, const double hstep, int state, gsl_vector_complex **psi_state)
 {
   const int STATESIZE = evec->size1;
   if (evec->size2 != STATESIZE) {
@@ -189,7 +189,7 @@ void eigen_norm_state_alloc(const gsl_matrix *evec, int state, gsl_vector_comple
   for (int j = 0; j < STATESIZE; j++) {
     gsl_complex ej = gsl_complex_rect(gsl_matrix_get(evec, j, state), 0.0);
     gsl_vector_complex_set(*psi_state, j, ej);
-    psi_norm += gsl_complex_abs2(ej);
+    psi_norm += gsl_complex_abs2(ej) * hstep;
   }
   gsl_vector_complex_scale(*psi_state, gsl_complex_rect(1.0 / sqrt(psi_norm), 0.0));
 }

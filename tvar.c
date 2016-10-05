@@ -122,7 +122,7 @@ void stationary(void)
   FILE *f = fopen("tvardata/eig-v0-abs2.txt", "w");
   
   for (int j = STATE0; j < evec->size2; j++) {
-    eigen_norm_state_alloc(evec, j, &psi);
+    eigen_norm_state_alloc(evec, HSTEP, j, &psi);
     fprintf(f, "state%04d", (j - STATE0));
     fwrite_vector_complex_abs2(f, psi);
     gsl_vector_complex_free(psi);
@@ -139,7 +139,7 @@ void stationary(void)
   f = fopen("tvardata/eig-v1-abs2.txt", "w");
   
   for (int j = STATE0; j < evec->size2; j++) {
-    eigen_norm_state_alloc(evec, j, &psi);
+    eigen_norm_state_alloc(evec, HSTEP, j, &psi);
     fprintf(f, "state%04d", (j - STATE0));
     fwrite_vector_complex_abs2(f, psi);
     gsl_vector_complex_free(psi);
@@ -168,7 +168,7 @@ void evolve(void)
   
   eigen_solve_alloc(H0, &eval, &evec);
 
-  eigen_norm_state_alloc(evec, STATE0, &psi);
+  eigen_norm_state_alloc(evec, HSTEP, STATE0, &psi);
 
   FILE *psi1t = fopen("tvardata/psi-v1-t.txt", "w");
   
@@ -189,7 +189,7 @@ void evolve(void)
     if (tstep % WRITEEVERY == 0) {
       printf("\033[2J\033[H");
       printf("t = %0.6f (tstep %6d)\n", t, tstep);
-      terminal_graph_abs2(psi, 24, 1.0/25.0);
+      terminal_graph_abs2(psi, 24, 2.0);
       puts("");
       terminal_graph_phase(psi, 8);
       

@@ -95,7 +95,7 @@ gsl_vector_complex *iterate_unitary(void)
   
   eigen_solve_alloc(H0, &eval, &evec);
 
-  eigen_norm_state_alloc(evec, GROUNDSTATE, &psi0);
+  eigen_norm_state_alloc(evec, HSTEP, GROUNDSTATE, &psi0);
 
   gsl_matrix_complex *Utmp = gsl_matrix_complex_alloc(STATESIZE, STATESIZE);
   gsl_matrix_complex *U1ttl = gsl_matrix_complex_alloc(STATESIZE, STATESIZE);
@@ -160,7 +160,7 @@ gsl_vector_complex *iterate_solve()
   
   eigen_solve_alloc(H0, &eval, &evec);
 
-  eigen_norm_state_alloc(evec, GROUNDSTATE, &psi0);
+  eigen_norm_state_alloc(evec, HSTEP, GROUNDSTATE, &psi0);
 
   gsl_vector_complex *psiold = gsl_vector_complex_calloc(STATESIZE);
   gsl_vector_complex *psinew = gsl_vector_complex_calloc(STATESIZE); /* Returned */
