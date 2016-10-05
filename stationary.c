@@ -21,8 +21,7 @@
 #define FREE_TFINAL 1.0
 
 #define STATE0 2
-#define STATE1 3
-#define STATE2 4
+#define NSTATE 9
 
 /*
  * For NPTS = 7
@@ -30,6 +29,14 @@
  * 0 1 2 3 4 5 6 7 8
  * |<- STATESIZE ->|
  * At length = 1, HSTEP = 1/8 = LENGTH / (NPTS + 1)
+ */
+
+/* Simple infinite well of length l
+ * psi_n = (2 / l) * exp(-i omega_n t) * sin (k_n x)
+ * k_n = n * pi / l
+ * E_n = n^2 * (pi^2 * planck^2) / (2 * m * l^2)
+ * omega_n = n^2 * (pi^2 * planck) / (2 * m * l^2)
+ * < psi_n | psi_m > = delta(m, n)
  */
 
 void solve_stationary(const double planck, const double mass,
@@ -42,8 +49,11 @@ int main(void)
   solve_stationary(1.0, 0.5, 255, 2.0, 1.0 / 1024.0);
   solve_stationary(1.0, 2.0, 255, 2.0, 1.0 / 1024.0);
 
-  solve_stationary(1.0, 0.5, 255, 1.0, 1.0 / 1024.0);
-  solve_stationary(1.0, 2.0, 255, 4.0, 1.0 / 1024.0);
+  solve_stationary(1.0, 1.0, 255, 1.0, 1.0 / 1024.0);
+  solve_stationary(1.0, 1.0, 255, 4.0, 1.0 / 1024.0);
+
+  solve_stationary(2.0, 1.0, 255, 2.0, 1.0 / 1024.0);
+  solve_stationary(4.0, 1.0, 255, 2.0, 1.0 / 1024.0);
 }
 
 void solve_stationary(const double planck, const double mass,
@@ -64,7 +74,8 @@ void solve_stationary(const double planck, const double mass,
   gsl_vector *eval;
   gsl_matrix *evec;
 
-  gsl_vector_complex *psi0, *psi1;
+  gsl_vector_complex **psis;
+  psis = malloc(sizeof(gsl_vector_complex *) * NSTATE);
   
   eigen_solve_alloc(H0, &eval, &evec);
 
@@ -82,40 +93,53 @@ void solve_stationary(const double planck, const double mass,
 
   fprintf(f, "n\tk\tEobs\tEcalc\tpsil2\n");
   
-  for (int i = 0; (i + STATE0) < eval->size; i++) {
+  for (int i = 0; (i < NSTATE); i++) {
+    if ((i + STATE0) >= eval->size) {
+      fprintf(stderr, "Not enough eigenstates for NSTATE");
+      exit(1);
+    }
+
     const int n = i + 1;
     double kn = n * M_PI / length;
     double En = n * n * M_PI * M_PI * planck * planck / (2.0 * mass * length * length);
 
-    gsl_vector_complex *psi_i;
-    eigen_norm_state_alloc(evec, hstep, i + STATE0, &psi_i);
+    eigen_norm_state_alloc(evec, hstep, i + STATE0, &(psis[i]));
 
     asprintf(&filename, "%s-psi%03d.txt", prefix, n);
     FILE *fpsi = fopen(filename, "w");
     free(filename);
-    fwrite_vector_complex_thorough(fpsi, psi_i);
+    fwrite_vector_complex_thorough(fpsi, psis[i]);
     fclose(fpsi);
     
     double l2 = 0.0;
     for (int j = 1; j < statesize; j++) {
-      const double dev = (2.0 / length) * sin(kn * (j * hstep)) - GSL_REAL(gsl_vector_complex_get(psi_i, j));
+      const double dev = (2.0 / length) * sin(kn * (j * hstep)) - GSL_REAL(gsl_vector_complex_get(psis[i], j));
       l2 += dev * dev * hstep;
     }
-    gsl_vector_complex_free(psi_i);
-
     fprintf(f, "%d\t%0.6f\t%0.6f\t%0.6f\t%0.6f\n",
 	  n, kn, gsl_vector_get(eval, i + STATE0), En, l2);
   }
   
   fclose(f);
   
-  eigen_norm_state_alloc(evec, hstep, STATE0, &psi0);
-  eigen_norm_state_alloc(evec, hstep, STATE1, &psi1);
+  FILE **psimagfiles = malloc(sizeof(FILE *) * NSTATE);
+  FILE **psiphfiles = malloc(sizeof(FILE *) * NSTATE);
   
-  FILE *psi0mag = fopen("tvardata/psi-v0-st0-mag.txt", "w");
-  FILE *psi0ph = fopen("tvardata/psi-v0-st0-ph.txt", "w");
-  FILE *psi1mag = fopen("tvardata/psi-v0-st1-mag.txt", "w");
-  FILE *psi1ph = fopen("tvardata/psi-v0-st1-ph.txt", "w");
+  for (int i = 0; i < NSTATE; i++) {
+    asprintf(&filename, "%s-psi%03d-mag.txt", prefix, i+1);
+    if ((psimagfiles[i] = fopen(filename, "w")) == NULL) {
+      fprintf(stderr, "Failed to open \"%s\"\n", filename);
+      exit(1);
+    }
+    free(filename);
+
+    asprintf(&filename, "%s-psi%03d-ph.txt", prefix, i+1);
+    if ((psiphfiles[i] = fopen(filename, "w")) == NULL) {
+      fprintf(stderr, "Failed to open \"%s\"\n", filename);
+      exit(1);
+    }
+    free(filename);
+  }
 
   timeevol_halves *U0 = timeevol_halves_alloc(statesize);
   set_timeevol_halves(U0, H0, H0, planck, tstep, NULL);
@@ -125,35 +149,29 @@ void solve_stationary(const double planck, const double mass,
   for (int t = 0; (t * tstep) <= FREE_TFINAL; t++) {
     const double time = t * tstep;
 
-    timeevol_state(psinew, U0, psi0);
-    gsl_vector_complex_memcpy(psi0, psinew);
-
-    timeevol_state(psinew, U0, psi1);
-    gsl_vector_complex_memcpy(psi1, psinew);
-
     if (t % WRITEEVERY == 0) {
       printf("time = %0.6f (t = %6d)\n", time, t);
 
-      fprintf(psi0mag, "%0.6f", time);
-      fwrite_vector_complex_abs(psi0mag, psi0);
+      for (int i = 0; i < NSTATE; i++) {
+        fprintf(psimagfiles[i], "%0.6f", time);
+        fwrite_vector_complex_abs(psimagfiles[i], psis[i]);
+        
+        fprintf(psiphfiles[i], "%0.6f", time);
+        fwrite_vector_complex_arg(psiphfiles[i], psis[i]);
+      }
+    }
 
-      fprintf(psi0ph, "%0.6f", time);
-      fwrite_vector_complex_arg(psi0ph, psi0);
-
-      fprintf(psi1mag, "%0.6f", time);
-      fwrite_vector_complex_abs(psi1mag, psi1);
-      
-      fprintf(psi1ph, "%0.6f", time);
-      fwrite_vector_complex_arg(psi1ph, psi1);
+    for (int i = 0; i < NSTATE; i++) {
+      timeevol_state(psinew, U0, psis[i]);
+      gsl_vector_complex_memcpy(psis[i], psinew);
     }
   }
 
-  fclose(psi0mag);
-  fclose(psi0ph);
-  fclose(psi1mag);
-  fclose(psi1ph);
+  for (int i = 0; i < NSTATE; i++) {
+    fclose(psimagfiles[i]);
+    fclose(psiphfiles[i]);
+  }
 
-  terminal_graph_abs2(psi0, 24, 1.0/32.0);
-
-  terminal_graph_abs2(psi1, 24, 1.0/32.0);
+  terminal_graph_abs2(psis[0], 24, 2.0);
+  terminal_graph_abs2(psis[1], 24, 2.0);
 }
