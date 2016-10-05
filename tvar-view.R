@@ -2,7 +2,7 @@
 psi1 <- read.delim("psi-v1-t.txt", header=FALSE, row.names=1)
 
 #yrange <- c(0, 1.1*max(psi0, psi1))
-yrange <- c(0, 1.1*max(psi1))
+yrange <- c(0, 1.1*max(psi1, na.rm=TRUE))
 #plot(t(psi0)[,1], type="l", col="black", ylim=yrange)
 
 plot(t(psi1)[,1], type="l", col="black", ylim=yrange)
@@ -15,6 +15,18 @@ lines(t(psi1)[,512], col="magenta")
 plot(psi1$V64, type="l", col="black", ylim=yrange)
 lines(psi1$V32, col="blue")
 lines(psi1$V96, col="red")
+
+pdf ("steady.pdf", useDingbats=FALSE)
+eig0 <- read.delim("eig-v0-abs2.txt", header=FALSE, row.names=1)
+eig1 <- read.delim("eig-v1-abs2.txt", header=FALSE, row.names=1)
+
+plot(t(eig0)[,1], type="l", col="black", ylim=c(0, 1.1*max(eig0, eig1)))
+lines(t(eig0)[,2], col="blue")
+lines(t(eig0)[,3], col="cyan")
+lines(t(eig1)[,1], col="red")
+lines(t(eig1)[,2], col="magenta")
+
+dev.off()
 
 pdf("heatmap.pdf", useDingbats=FALSE)
 image(z=as.matrix(psi1), zlim=yrange, col=topo.colors(32))

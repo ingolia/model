@@ -20,6 +20,7 @@
 #define MIDDLE ((NPTS+1)/2)
 #define STATESIZE (NPTS + 2)
 
+#define PLANCK 1.0
 #define MASS 1.0
 #define HSTEP (1.0/64.0)
 #define TSTEP (1.0/1024.0)
@@ -41,7 +42,7 @@ int main(void)
   
   gsl_matrix *H0 = gsl_matrix_alloc(STATESIZE, STATESIZE);
 
-  set_hamiltonian(H0, V, MASS, HSTEP);
+  set_hamiltonian(H0, V, PLANCK, MASS, HSTEP);
 
   gsl_vector *eval;
   gsl_matrix *evec;
@@ -59,7 +60,7 @@ int main(void)
   FILE *psi1ph = fopen("tvardata/psi-v0-st1-ph.txt", "w");
 
   timeevol_halves *U0 = timeevol_halves_alloc(STATESIZE);
-  set_timeevol_halves(U0, H0, H0, TSTEP, NULL);
+  set_timeevol_halves(U0, H0, H0, PLANCK, TSTEP, NULL);
 
   gsl_vector_complex *psinew = gsl_vector_complex_alloc(STATESIZE);
   

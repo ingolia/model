@@ -20,6 +20,7 @@
 #define MIDDLE ((NPTS+1)/2)
 #define STATESIZE (NPTS + 2)
 
+#define PLANCK 1.0
 #define MASS 1.0
 #define HSTEP (1.0/64.0)
 #define TSTEP (1.0/1024.0)
@@ -27,18 +28,18 @@
 
 #define TFINAL 20.0
 
-#define V0MAX 20.0
+#define V0MAX 120.0
 
-#define TSTART   2.0
-#define THOLD    4.0
-#define TRELEASE 8.0
-#define TDONE    8.1
+#define TSTART   3.0
+#define THOLD    6.0
+#define TRELEASE 10.0
+#define TDONE    10.1
 
 #define STATE0 2
 
 void vtstep(gsl_vector *V, int tstep)
 {
-  vtstep_jump(V, tstep);
+  vtstep_well(V, tstep);
 }
 
 double vtscale(int tstep)
@@ -59,6 +60,16 @@ double vtscale(int tstep)
   }
 
   return v0;
+}
+
+void vtstep_well(gsl_vector *V, int tstep)
+{
+  double v0 = vtscale(tstep);
+
+  for (int i = 1; i < (V->size - 1); i++) {
+    double dx = ((double) (i - MIDDLE)) / ((double) MIDDLE);
+    gsl_vector_set(V, i, 0.5 * v0 * dx * dx);
+  }
 }
 
 void vtstep_jump(gsl_vector *V, int tstep)
@@ -100,7 +111,7 @@ void stationary(void)
   
   gsl_matrix *H0 = gsl_matrix_alloc(STATESIZE, STATESIZE);
 
-  set_hamiltonian(H0, V, MASS, HSTEP);
+  set_hamiltonian(H0, V, PLANCK, MASS, HSTEP);
 
   gsl_vector *eval;
   gsl_matrix *evec;
@@ -122,7 +133,7 @@ void stationary(void)
   gsl_vector_free(eval);
   
   vtstep(V, 1 + ((int) (THOLD / TSTEP)));
-  set_hamiltonian(H0, V, MASS, HSTEP);
+  set_hamiltonian(H0, V, PLANCK, MASS, HSTEP);
   eigen_solve_alloc(H0, &eval, &evec);
 
   f = fopen("tvardata/eig-v1-abs2.txt", "w");
@@ -149,7 +160,7 @@ void evolve(void)
   gsl_matrix *Hprev = gsl_matrix_alloc(STATESIZE, STATESIZE);
   gsl_matrix *Hnext = gsl_matrix_alloc(STATESIZE, STATESIZE);
 
-  set_hamiltonian(H0, V, MASS, HSTEP);
+  set_hamiltonian(H0, V, PLANCK, MASS, HSTEP);
 
   gsl_vector *eval;
   gsl_matrix *evec;
@@ -168,11 +179,11 @@ void evolve(void)
     const double t = tstep * TSTEP;
 
     vtstep(V, tstep);
-    set_hamiltonian(Hprev, V, MASS, HSTEP);
+    set_hamiltonian(Hprev, V, PLANCK, MASS, HSTEP);
     vtstep(V, tstep+1);
-    set_hamiltonian(Hnext, V, MASS, HSTEP);
+    set_hamiltonian(Hnext, V, PLANCK, MASS, HSTEP);
 
-    set_timeevol_halves(U, Hprev, Hnext, TSTEP, NULL);
+    set_timeevol_halves(U, Hprev, Hnext, PLANCK, TSTEP, NULL);
     timeevol_state(psinew, U, psi);
 
     if (tstep % WRITEEVERY == 0) {

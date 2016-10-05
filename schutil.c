@@ -22,7 +22,7 @@
 
 void check_deviation(const gsl_matrix *Z, size_t *imax, size_t *jmax, double *absmax, double *norm);
 
-void set_hamiltonian(gsl_matrix *H, const gsl_vector *V, const double mass, const double hstep)
+void set_hamiltonian(gsl_matrix *H, const gsl_vector *V, const double planck, const double mass, const double hstep)
 {
   const size_t npts = H->size1-2;
 
@@ -32,7 +32,7 @@ void set_hamiltonian(gsl_matrix *H, const gsl_vector *V, const double mass, cons
   gsl_matrix_set_all(H, 0.0);
 
   for (int j = 1; j <= npts; j++) {
-    const double pfact = -0.5 / mass;
+    const double pfact = -0.5 * planck * planck / mass;
     const double hstep2 = 1.0 / (hstep * hstep);
 
     if (j > 1)    { gsl_matrix_set(H, j, j-1, pfact * hstep2); }
@@ -65,7 +65,7 @@ void timeevol_halves_free(timeevol_halves *U)
 
 void set_timeevol_halves(timeevol_halves *U,
 		     const gsl_matrix *H0, const gsl_matrix *H1,
-		     const double tstep, FILE *fdebug)
+		     const double planck, const double tstep, FILE *fdebug)
 {
   const size_t N = H0->size1;
 
@@ -87,7 +87,7 @@ void set_timeevol_halves(timeevol_halves *U,
     fwrite_matrix_complex(fdebug, U->halfH);
   }
   
-  GSL_SET_COMPLEX(&(U->ihdt), 0.0, 1.0 / tstep);
+  GSL_SET_COMPLEX(&(U->ihdt), 0.0, planck / tstep);
 
   if (fdebug) {
     fprintf(fdebug, "ihΔt = %0.6f+%0.6fi\n", GSL_REAL(U->ihdt), GSL_IMAG(U->ihdt));
@@ -116,13 +116,14 @@ void set_timeevol_halves(timeevol_halves *U,
   gsl_linalg_complex_LU_decomp(U->ALU, U->ALUp, &Asgn);
 }
 
-void set_timeevol(gsl_matrix_complex *Uout, const gsl_matrix *H0, const gsl_matrix *H1, const double hstep, const double tstep, FILE *fdebug)
+void set_timeevol(gsl_matrix_complex *Uout, const gsl_matrix *H0, const gsl_matrix *H1, 
+	        const double planck, const double hstep, const double tstep, FILE *fdebug)
 {
   const int N = H0->size1;
   
   timeevol_halves *U = timeevol_halves_alloc(N);
   
-  set_timeevol_halves(U, H0, H1, tstep, fdebug);
+  set_timeevol_halves(U, H0, H1, planck, tstep, fdebug);
 
   gsl_matrix_complex *Ainv = gsl_matrix_complex_alloc(N, N);
   gsl_linalg_complex_LU_invert(U->ALU, U->ALUp, Ainv);

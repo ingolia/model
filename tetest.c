@@ -21,6 +21,7 @@
 #define MIDDLE ((NPTS+1)/2)
 #define STATESIZE (NPTS + 2)
 
+#define PLANCK 1.0
 #define MASS 1.0
 #define HSTEP (1.0/64.0)
 #define TSTEP (1.0/2048.0)
@@ -86,7 +87,7 @@ gsl_vector_complex *iterate_unitary(void)
   gsl_matrix *Hprev = gsl_matrix_alloc(STATESIZE, STATESIZE);
   gsl_matrix *Hnext = gsl_matrix_alloc(STATESIZE, STATESIZE);
 
-  set_hamiltonian(H0, V, MASS, HSTEP);
+  set_hamiltonian(H0, V, PLANCK, MASS, HSTEP);
 
   gsl_vector *eval;
   gsl_matrix *evec;
@@ -111,11 +112,11 @@ gsl_vector_complex *iterate_unitary(void)
     gsl_matrix_complex *U1 = gsl_matrix_complex_alloc(STATESIZE, STATESIZE);
 
     vtstep(V, tstep);
-    set_hamiltonian(Hprev, V, MASS, HSTEP);
+    set_hamiltonian(Hprev, V, PLANCK, MASS, HSTEP);
     vtstep(V, tstep+1);
-    set_hamiltonian(Hnext, V, MASS, HSTEP);
+    set_hamiltonian(Hnext, V, PLANCK, MASS, HSTEP);
 
-    set_timeevol(U1, Hprev, Hnext, HSTEP, TSTEP, NULL);
+    set_timeevol(U1, Hprev, Hnext, PLANCK, HSTEP, TSTEP, NULL);
 
     gsl_matrix_complex_memcpy(Utmp, U1ttl);
     gsl_blas_zgemm(CblasNoTrans, CblasNoTrans, one, U1, Utmp, zero, U1ttl);
@@ -151,7 +152,7 @@ gsl_vector_complex *iterate_solve()
   gsl_matrix *Hprev = gsl_matrix_alloc(STATESIZE, STATESIZE);
   gsl_matrix *Hnext = gsl_matrix_alloc(STATESIZE, STATESIZE);
 
-  set_hamiltonian(H0, V, MASS, HSTEP);
+  set_hamiltonian(H0, V, PLANCK, MASS, HSTEP);
 
   gsl_vector *eval;
   gsl_matrix *evec;
@@ -176,11 +177,11 @@ gsl_vector_complex *iterate_solve()
     const double t = tstep * TSTEP;
 
     vtstep(V, tstep);
-    set_hamiltonian(Hprev, V, MASS, HSTEP);
+    set_hamiltonian(Hprev, V, PLANCK, MASS, HSTEP);
     vtstep(V, tstep+1);
-    set_hamiltonian(Hnext, V, MASS, HSTEP);
+    set_hamiltonian(Hnext, V, PLANCK, MASS, HSTEP);
 
-    set_timeevol_halves(U, Hprev, Hnext, TSTEP, NULL);
+    set_timeevol_halves(U, Hprev, Hnext, PLANCK, TSTEP, NULL);
     timeevol_state(psinew, U, psiold);
 
     if (tstep % 64 == 0) {

@@ -17,6 +17,7 @@
 #define MIDDLE ((NPTS+1)/2)
 #define STATESIZE (NPTS + 2)
 
+#define PLANCK 1.0
 #define MASS 1.0
 #define HSTEP (1.0/64.0)
 
@@ -46,7 +47,7 @@ void solve_potential(const char *prefix, const gsl_vector *V)
 
   gsl_matrix *H = gsl_matrix_alloc(STATESIZE, STATESIZE);
 
-  set_hamiltonian(H, V, MASS, HSTEP);
+  set_hamiltonian(H, V, PLANCK, MASS, HSTEP);
   check_symmetry(H);
   write_hamiltonian(prefix, H);
 
