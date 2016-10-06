@@ -44,16 +44,16 @@ void solve_stationary(const double planck, const double mass,
 
 int main(void)
 {
-  solve_stationary(1.0, 1.0, 255, 2.0, 1.0 / 1024.0);
+  solve_stationary(1.0, 1.0, 63, 2.0, 1.0 / 1024.0);
 
-  solve_stationary(1.0, 0.5, 255, 2.0, 1.0 / 1024.0);
-  solve_stationary(1.0, 2.0, 255, 2.0, 1.0 / 1024.0);
+  solve_stationary(1.0, 0.5, 63, 2.0, 1.0 / 1024.0);
+  solve_stationary(1.0, 2.0, 63, 2.0, 1.0 / 1024.0);
 
-  solve_stationary(1.0, 1.0, 255, 1.0, 1.0 / 1024.0);
-  solve_stationary(1.0, 1.0, 255, 4.0, 1.0 / 1024.0);
+  solve_stationary(1.0, 1.0, 63, 1.0, 1.0 / 1024.0);
+  solve_stationary(1.0, 1.0, 63, 4.0, 1.0 / 1024.0);
 
-  solve_stationary(2.0, 1.0, 255, 2.0, 1.0 / 1024.0);
-  solve_stationary(4.0, 1.0, 255, 2.0, 1.0 / 1024.0);
+  solve_stationary(2.0, 1.0, 63, 2.0, 1.0 / 1024.0);
+  solve_stationary(4.0, 1.0, 63, 2.0, 1.0 / 1024.0);
 }
 
 void solve_stationary(const double planck, const double mass,
