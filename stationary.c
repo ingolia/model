@@ -7,6 +7,7 @@
 #include <gsl/gsl_complex.h>
 #include <gsl/gsl_complex_math.h>
 #include <gsl/gsl_eigen.h>
+#include <gsl/gsl_fit.h>
 #include <gsl/gsl_matrix.h>
 #include <gsl/gsl_matrix_complex_double.h>
 #include <gsl/gsl_permutation.h>
@@ -16,6 +17,7 @@
 #include "schutil.h"
 #include "writing.h"
 
+#define NTARG 8
 #define WRITEEVERY 8
 
 #define FREE_TFINAL 1.0
@@ -79,6 +81,12 @@ void solve_stationary(const double planck, const double mass,
   
   eigen_solve_alloc(H0, &eval, &evec);
 
+  double *ts = calloc(NTARG, sizeof(double));
+  double **targs = calloc(NSTATE, sizeof(double *));
+  for (int i = 0; i < NSTATE; i++) {
+    targs[i] = calloc(NTARG, sizeof(double));
+  }
+  
   asprintf(&filename, "%s-eigstates.txt", prefix);
   FILE *f = fopen(filename, "w");
   free(filename);
@@ -92,7 +100,7 @@ void solve_stationary(const double planck, const double mass,
   fprintf(f, "# hstep  = %0.6f\n", hstep);
 
   fprintf(f, "n\tk\tEobs\tEcalc\tpsil2\n");
-  
+
   for (int i = 0; (i < NSTATE); i++) {
     if ((i + STATE0) >= eval->size) {
       fprintf(stderr, "Not enough eigenstates for NSTATE");
@@ -149,6 +157,13 @@ void solve_stationary(const double planck, const double mass,
   for (int t = 0; (t * tstep) <= FREE_TFINAL; t++) {
     const double time = t * tstep;
 
+    if (t < NTARG) {
+      ts[t] = time;
+      for (int i = 0; i < NSTATE; i++) {
+        targs[i][t] = gsl_complex_arg(gsl_vector_complex_get(psis[i], 1));
+      }
+    }
+    
     if (t % WRITEEVERY == 0) {
       printf("time = %0.6f (t = %6d)\n", time, t);
 
@@ -174,4 +189,56 @@ void solve_stationary(const double planck, const double mass,
 
   terminal_graph_abs2(psis[0], 24, 2.0);
   terminal_graph_abs2(psis[1], 24, 2.0);
+
+  asprintf(&filename, "%s-timephase.txt", prefix);
+  f = fopen(filename, "w");
+  free(filename);
+
+  for (int i = 0; i < NTARG; i++) {
+    fprintf(f, "%0.6f", ts[i]);
+    for (int j = 0; j < NSTATE; j++) {
+      fprintf(f, "\t%0.4f", targs[j][i]);
+    }
+    fprintf(f, "\n");
+  }
+
+  double *c0 = calloc(NSTATE, sizeof(double));
+  double *c1 = calloc(NSTATE, sizeof(double));
+  double *sumsq = calloc(NSTATE, sizeof(double));
+  
+  for (int j = 0; j < NSTATE; j++) {
+    double cov00, cov01, cov11;
+    gsl_fit_linear(ts, 1, targs[j], 1, NTARG,
+	         &(c0[j]), &(c1[j]), &cov00, &cov01, &cov11, &(sumsq[j]));
+  }
+
+  fprintf(f, "c0");
+  for (int j = 0; j < NSTATE; j++) {
+    fprintf(f, "\t%0.4f", c0[j]);
+  }
+  fprintf(f, "\n");
+
+  fprintf(f, "c1");
+  for (int j = 0; j < NSTATE; j++) {
+    fprintf(f, "\t%0.4f", c1[j]);
+  }
+  fprintf(f, "\n");
+
+  fprintf(f, "sumsq");
+  for (int j = 0; j < NSTATE; j++) {
+    fprintf(f, "\t%0.4f", sumsq[j]);
+  }
+  fprintf(f, "\n");
+
+  free(c0);
+  free(c1);
+  free(sumsq);
+
+  free(ts);
+  for (int j = 0; j < NSTATE; j++) {
+    free(targs[j]);
+  }
+  free(targs);
+  
+  fclose(f);
 }

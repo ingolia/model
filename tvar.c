@@ -16,30 +16,30 @@
 #include "schutil.h"
 #include "writing.h"
 
-#define NPTS 127
+#define NPTS 128
 #define MIDDLE ((NPTS+1)/2)
 #define STATESIZE (NPTS + 2)
 
-#define PLANCK 1.0
+#define PLANCK 4.0
 #define MASS 1.0
 #define HSTEP (1.0/64.0)
-#define TSTEP (1.0/1024.0)
+#define TSTEP (1.0/256.0)
 #define WRITEEVERY 8
 
-#define TFINAL 20.0
+#define TFINAL 40.0
 
-#define V0MAX 120.0
+#define V0MAX 240.0
 
-#define TSTART   3.0
-#define THOLD    6.0
-#define TRELEASE 10.0
-#define TDONE    10.1
+#define TSTART   2.0
+#define THOLD    22.0
+#define TRELEASE 27.0
+#define TDONE    37.0
 
-#define STATE0 2
+#define STATE0 3
 
 void vtstep(gsl_vector *V, int tstep)
 {
-  vtstep_well(V, tstep);
+  vtstep_jump(V, tstep);
 }
 
 double vtscale(int tstep)
