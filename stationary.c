@@ -230,6 +230,26 @@ void solve_stationary(const double planck, const double mass,
   }
   fprintf(f, "\n");
 
+  fprintf(f, "sumsq");
+  for (int j = 0; j < NSTATE; j++) {
+    fprintf(f, "\t%0.4f", sumsq[j]);
+  }
+  fprintf(f, "\n");
+
+  fprintf(f, "w_n");
+  for (int j = 0; j < NSTATE; j++) {
+    double omegan = (j+1) * (j+1) * M_PI * M_PI * planck / (2.0 * mass * length * length);
+    fprintf(f, "\t%0.4f", omegan);
+  }
+  fprintf(f, "\n");
+
+  fprintf(f, "err");
+  for (int j = 0; j < NSTATE; j++) {
+    double omegan = (j+1) * (j+1) * M_PI * M_PI * planck / (2.0 * mass * length * length);
+    fprintf(f, "\t%0.4f", omegan + c1[j]);
+  }
+  fprintf(f, "\n");
+  
   free(c0);
   free(c1);
   free(sumsq);
