@@ -31,11 +31,12 @@
 #define V0MAX 240.0
 
 #define TSTART   2.0
-#define THOLD    22.0
-#define TRELEASE 27.0
-#define TDONE    37.0
+#define THOLD    2.1
+#define TRELEASE 4.1
+#define TDONE    14.1
 
-#define STATE0 3
+#define STATE0 2
+#define STATE  3
 
 void vtstep(gsl_vector *V, int tstep)
 {
@@ -101,7 +102,6 @@ void evolve(void);
 
 int main(void)
 {
-  stationary();
   evolve();
 }
 
@@ -123,7 +123,7 @@ void stationary(void)
   
   for (int j = STATE0; j < evec->size2; j++) {
     eigen_norm_state_alloc(evec, HSTEP, j, &psi);
-    fprintf(f, "state%04d", (j - STATE0));
+    fprintf(f, "state%04d", (j - STATE));
     fwrite_vector_complex_abs2(f, psi);
     gsl_vector_complex_free(psi);
   }
@@ -140,7 +140,7 @@ void stationary(void)
   
   for (int j = STATE0; j < evec->size2; j++) {
     eigen_norm_state_alloc(evec, HSTEP, j, &psi);
-    fprintf(f, "state%04d", (j - STATE0));
+    fprintf(f, "state%04d", (j - STATE));
     fwrite_vector_complex_abs2(f, psi);
     gsl_vector_complex_free(psi);
   }
@@ -165,16 +165,24 @@ void evolve(void)
   gsl_vector *eval;
   gsl_matrix *evec;
   gsl_vector_complex *psi;
+  gsl_vector_complex **psis = calloc(sizeof(gsl_vector_complex *), STATESIZE);
   
   eigen_solve_alloc(H0, &eval, &evec);
-
-  eigen_norm_state_alloc(evec, HSTEP, STATE0, &psi);
+  for (int i = 0; i < STATESIZE; i++) {
+    eigen_norm_state_alloc(evec, HSTEP, i, &(psis[i]));
+  }
+  
+  eigen_norm_state_alloc(evec, HSTEP, STATE, &psi);
 
   FILE *psi1t = fopen("tvardata/psi-v1-t.txt", "w");
   
   timeevol_halves *U = timeevol_halves_alloc(STATESIZE);
   gsl_vector_complex *psinew = gsl_vector_complex_calloc(STATESIZE);
+  gsl_vector_complex *psieig = gsl_vector_complex_calloc(STATESIZE);
   
+  gsl_complex hstep_c;
+  GSL_SET_COMPLEX(&hstep_c, HSTEP, 0.0);
+
   for (int tstep = 0; (tstep * TSTEP) <= TFINAL; tstep++) {
     const double t = tstep * TSTEP;
 
@@ -187,11 +195,18 @@ void evolve(void)
     timeevol_state(psinew, U, psi);
 
     if (tstep % WRITEEVERY == 0) {
+      for (int i = 0; i < STATESIZE; i++) {
+        gsl_blas_zdotc(psis[i], psi, gsl_vector_complex_ptr(psieig, i));
+      }
+      gsl_vector_complex_scale(psieig, hstep_c);
+
       printf("\033[2J\033[H");
       printf("t = %0.6f (tstep %6d)\n", t, tstep);
       terminal_graph_abs2(psi, 24, 2.0);
       puts("");
       terminal_graph_phase(psi, 8);
+      puts("");
+      terminal_graph_abs(psieig, 12, 1.2);
       
       fprintf(psi1t, "%0.6f", t);
       fwrite_vector_complex_abs2(psi1t, psi);
