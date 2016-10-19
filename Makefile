@@ -3,7 +3,7 @@ CFLAGS=-O3 -g
 LDFLAGS=-g
 LOADLIBES=-lgsl -lblas -lm
 
-all: d1p1 tvar tetest stationary
+all: d1p1 tvar tetest stationary grid2d_test
 
 d1p1: d1p1.o schutil.o writing.o
 
@@ -22,3 +22,9 @@ tetest.o: tetest.c schutil.h writing.h
 stationary.o: stationary.c schutil.h writing.h
 
 schutil.o: schutil.c schutil.h writing.h
+
+grid2d.o: grid2d.c grid2d.h
+
+grid2d_test.o: grid2d_test.c grid2d.h
+
+grid2d_test: grid2d_test.o grid2d.o
