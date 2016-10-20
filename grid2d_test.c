@@ -14,8 +14,8 @@
 #define PLANCK 1.0
 #define MASS   1.0
 
-#define NX 16
-#define NY 16
+#define NX 32
+#define NY 32
 
 #define HSTEP  (1.0 / ((double) NX))
 
@@ -51,7 +51,7 @@ int main(void)
   grid2d_free(g1);
   gsl_matrix_free(L);
 
-  g1 = grid2d_new_rectangle(16, 16);
+  g1 = grid2d_new_rectangle(NX, NY);
 
   gsl_matrix *H = gsl_matrix_calloc(g1->npts, g1->npts);
   gsl_vector *V = gsl_vector_calloc(g1->npts);
