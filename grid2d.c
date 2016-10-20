@@ -3,6 +3,50 @@
 
 #include "grid2d.h"
 
+typedef struct edge2d_list_struct {
+  edge2d edge;
+  struct edge2d_list_struct *next;
+} edge2d_list;
+
+void add_edge(edge2d_list **lptr, edge2d e);
+void free_list(edge2d_list *l);
+void list_to_array(const edge2d_list *edgelist, size_t *nedges, edge2d **edges);
+
+void list_to_array(const edge2d_list *edgelist, size_t *nedges, edge2d **edges)
+{
+  (*nedges) = 0;
+  const edge2d_list *e = edgelist;
+  while (e != NULL) {
+    (*nedges)++;
+    e = e->next;
+  }
+
+  (*edges) = calloc((*nedges), sizeof(edge2d));
+  size_t i;
+  for (i = 0, e = edgelist; i < (*nedges) && e != NULL; i++, e = e->next) {
+    (*edges)[i] = e->edge;
+  }
+}
+
+void add_edge(edge2d_list **lptr, edge2d e)
+{
+  edge2d_list *lnew = calloc(1, sizeof(edge2d_list));
+  lnew->edge = e;
+  lnew->next = (*lptr);
+  (*lptr) = lnew;
+}
+
+void free_list(edge2d_list *l)
+{
+  edge2d_list *next;
+
+  while (l != NULL) {
+    next = l->next;
+    free(l);
+    l = next;
+  }
+}
+
 void grid2d_free(grid2d *grid)
 {
   free(grid->chi0s);
@@ -11,6 +55,8 @@ void grid2d_free(grid2d *grid)
   
   free(grid->idxeta);
   free(grid->idxchi);
+
+  free(grid->edges);
 
   free(grid);
 }

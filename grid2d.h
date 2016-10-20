@@ -1,6 +1,12 @@
 #ifndef _GRID2D_H
 #define _GRID2D_H 1
 
+/* Undirected edges in adjacency graph */
+typedef struct {
+  size_t v1;
+  size_t v2;
+} edge2d;
+
 typedef struct {
   size_t npts;     /* Total number of points in grid */
   long   eta0;     /* Eta coordinate of the first row */
@@ -12,6 +18,9 @@ typedef struct {
   
   long   *idxeta;  /* Eta coordinate of a point (length = npts) */
   long   *idxchi;  /* Chi coordinate of a point (length = npts) */
+
+  size_t  nedges;  /* Number of edges (size of array) */
+  edge2d *edges;   /* Edges in adjacency graph */
 } grid2d;
 
 void grid2d_free(grid2d *grid);

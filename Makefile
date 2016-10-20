@@ -1,6 +1,6 @@
 CC=gcc
-CFLAGS=-O3 -g
-LDFLAGS=-g
+CFLAGS=-O3 -g -I/usr/local/include/
+LDFLAGS=-g -L/usr/local/lib/
 LOADLIBES=-lgsl -lblas -lm
 
 all: d1p1 tvar tetest stationary grid2d_test
