@@ -13,12 +13,9 @@
 #include <gsl/gsl_permutation.h>
 #include <gsl/gsl_vector.h>
 
+#include "grid2d.h"
 #include "schutil.h"
 #include "writing.h"
-
-#ifdef HAVE_INLINE
-#warning "Have inline!"
-#endif
 
 void check_deviation(const gsl_matrix *Z, size_t *imax, size_t *jmax, double *absmax, double *norm);
 
@@ -39,6 +36,23 @@ void set_hamiltonian(gsl_matrix *H, const gsl_vector *V, const double planck, co
     if (j < npts) { gsl_matrix_set(H, j, j+1, pfact * hstep2); }
 
     gsl_matrix_set(H, j, j, -2.0 * pfact * hstep2 + gsl_vector_get(V, j));
+  }
+}
+
+void set_hamiltonian_sq2d(gsl_matrix *H, const gsl_vector *V, const double planck, const double mass, const double hstep, const grid2d *grid)
+{
+  ASSERT_SQUARE_SIZE(H, grid->npts, "set_hamiltonian: dim(H) != |grid|");
+  ASSERT_SIZE1(H, V->size, "set_hamiltonian: dim(H) != dim(V)");
+
+  grid2d_set_laplacian(H, grid); /* The POSITIVE laplacian */
+
+  const double pfact = -0.5 * planck * planck / mass;
+  const double hstep2 = 1.0 / (hstep * hstep);
+
+  gsl_matrix_scale(H, -1.0 * pfact * hstep2);
+
+  for (size_t i = 0; i < grid->npts; i++) {
+    (*gsl_matrix_ptr(H, i, i)) += gsl_vector_get(V, i);
   }
 }
 
