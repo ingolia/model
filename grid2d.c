@@ -60,6 +60,8 @@ void grid2d_free(grid2d *grid)
 
   free(grid->edges);
 
+  free(grid->bndry);
+
   free(grid);
 }
 
@@ -111,6 +113,22 @@ grid2d *grid2d_new_rectangle(const size_t nchi, const size_t neta)
   list_to_array(edgelist, &(grid->nedges), &(grid->edges));
   free_list(edgelist);
 
+  grid->nbndry = 2 * (neta * nchi - 2);
+  grid->bndry = calloc(grid->nbndry, sizeof(size_t));
+  size_t i = 0;
+  for (int chi = 0; chi < nchi; chi++) {
+    grid->bndry[i] = grid2d_index(grid, chi, 0);
+    i++;
+    grid->bndry[i] = grid2d_index(grid, chi, neta - 1);
+    i++;
+  }
+  for (int eta = 1; eta < (neta - 1); eta++) {
+    grid->bndry[i] = grid2d_index(grid, 0, eta);
+    i++;
+    grid->bndry[i] = grid2d_index(grid, nchi - 1, eta);
+    i++;
+  }
+
   return grid;
 }
 
@@ -132,7 +150,13 @@ void grid2d_set_laplacian(gsl_matrix *L, const grid2d *grid)
     (*gsl_matrix_ptr(L, e.v2, e.v1)) -= 1.0;
   }
 
-  
+  for (size_t i = 0; i < grid->nbndry; i++) {
+    const size_t bi = grid->bndry[i];
+    for (size_t j = 0; j < grid->npts; j++) {
+      gsl_matrix_set(L, bi, j,  0.0);
+      gsl_matrix_set(L, j,  bi, 0.0);
+    }
+  }
 }
 
 void validate_grid2d(const grid2d *grid)

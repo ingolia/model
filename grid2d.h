@@ -21,6 +21,9 @@ typedef struct {
 
   size_t  nedges;  /* Number of edges (size of array) */
   edge2d *edges;   /* Edges in adjacency graph */
+
+  size_t  nbndry;  /* Number of points in the boundary */
+  size_t *bndry;
 } grid2d;
 
 void grid2d_free(grid2d *grid);
