@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include <gsl/gsl_matrix.h>
+
 #include "grid2d.h"
 
 typedef struct edge2d_list_struct {
@@ -86,7 +88,51 @@ grid2d *grid2d_new_rectangle(const size_t nchi, const size_t neta)
     grid->idxchi[i] = i % nchi;
   }
 
+  edge2d_list *edgelist = NULL;
+
+  for (int chi = 0; chi < nchi; chi++) {
+    for (int eta = 0; eta < neta; eta++) {
+      edge2d e;
+
+      if (eta + 1 < neta) { 
+	e.v1 = grid2d_index(grid, chi, eta);
+	e.v2 = grid2d_index(grid, chi, eta + 1);
+	add_edge(&edgelist, e);
+      }
+
+      if (chi + 1 < nchi) {
+	e.v1 = grid2d_index(grid, chi, eta);
+	e.v2 = grid2d_index(grid, chi + 1, eta);
+	add_edge(&edgelist, e);
+      }
+    }
+  }
+
+  list_to_array(edgelist, &(grid->nedges), &(grid->edges));
+  free_list(edgelist);
+
   return grid;
+}
+
+void grid2d_set_laplacian(gsl_matrix *L, const grid2d *grid)
+{
+  if ((L->size1 != grid->npts) || (L->size2 != grid->npts)) {
+    fprintf(stderr, "grid2d_set_laplacian: matrix size (%lu, %lu) does not match grid size %lu\n", 
+	    L->size1, L->size2, grid->npts);
+    exit(1);
+  }
+
+  gsl_matrix_set_all(L, 0.0);
+
+  for (size_t i = 0; i < grid->nedges; i++) {
+    const edge2d e = grid->edges[i];
+    (*gsl_matrix_ptr(L, e.v1, e.v1)) += 1.0;
+    (*gsl_matrix_ptr(L, e.v2, e.v2)) += 1.0;
+    (*gsl_matrix_ptr(L, e.v1, e.v2)) -= 1.0;
+    (*gsl_matrix_ptr(L, e.v2, e.v1)) -= 1.0;
+  }
+
+  
 }
 
 void validate_grid2d(const grid2d *grid)

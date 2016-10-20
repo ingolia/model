@@ -19,6 +19,25 @@ void fwrite_vector_complex_thorough(FILE *f, const gsl_vector_complex *V)
   }
 }
 
+void fwrite_matrix(FILE *f, const gsl_matrix *M)
+{
+  fprintf(f, "j");
+  for (int k = 0; k < M->size2; k++) {
+    fprintf(f, "\tk%d", k);
+  }
+  fprintf(f, "\n");
+
+  for (int j = 0; j < M->size1; j++) {
+    fprintf(f, "%d", j);
+
+    for (int k = 0; k < M->size2; k++) {
+      fprintf(f, "\t%0.4f", gsl_matrix_get(M, j, k));
+    }
+
+    fprintf(f, "\n");
+  }
+}
+
 void fwrite_matrix_complex(FILE *f, const gsl_matrix_complex *M)
 {
   fprintf(f, "j");

@@ -8,6 +8,7 @@ void fwrite_vector_complex_abs(FILE *f, const gsl_vector_complex *psi);
 void fwrite_vector_complex_arg(FILE *f, const gsl_vector_complex *psi);
 
 void fwrite_matrix_complex(FILE *f, const gsl_matrix_complex *M);
+void fwrite_matrix(FILE *f, const gsl_matrix *M);
 
 void terminal_graph_abs(const gsl_vector_complex *psi, const int, const double);
 void terminal_graph_abs2(const gsl_vector_complex *psi, const int, const double);

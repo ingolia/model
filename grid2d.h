@@ -26,6 +26,7 @@ typedef struct {
 void grid2d_free(grid2d *grid);
 
 grid2d *grid2d_new_rectangle(const size_t nchi, const size_t neta);
+void grid2d_set_laplacian(gsl_matrix *L, const grid2d *grid);
 
 inline size_t grid2d_index(const grid2d *g, long chi, long eta)
 {
