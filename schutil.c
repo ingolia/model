@@ -31,16 +31,37 @@ void set_hamiltonian(gsl_matrix *H, const gsl_vector *V, const double planck, co
   
   gsl_matrix_set_all(H, 0.0);
 
-  for (int j = 1; j <= npts; j++) {
-    const double pfact = -0.5 * planck * planck / mass;
-    const double hstep2 = 1.0 / (hstep * hstep);
+  const double pfact = -0.5 * planck * planck / mass;
+  const double hstep2 = 1.0 / (hstep * hstep);
 
+  for (int j = 1; j <= npts; j++) {
     if (j > 1)    { gsl_matrix_set(H, j, j-1, pfact * hstep2); }
     if (j < npts) { gsl_matrix_set(H, j, j+1, pfact * hstep2); }
 
     gsl_matrix_set(H, j, j, -2.0 * pfact * hstep2 + gsl_vector_get(V, j));
   }
 }
+
+/*
+inline size_t sq2d_idx(const size_t nxgrid, const size_t nygrid, size_t x, size_t y) { return (y * nxgrid) + x; }
+
+void set_hamiltonian_sq2d(gsl_matrix *H, const gsl_vector *V, const double planck, const double mass, const double hstep, const size_t nxgrid, const size_t nygrid)
+{
+  ASSERT_SQUARE_SIZE(H, nxgrid * nygrid, "set_hamiltonian_2d_square: H does not match nxgrid and nygrid");
+  ASSERT_SIZE1(H, V->size, "set_hamiltonian_2d_square: dim(H) != dim(V)");
+
+  gsl_matrix_set_all(H, 0.0);
+
+  const double pfact = -0.5 * planck * planck / mass;
+  const double hstep2 = 1.0 / (hstep * hstep);
+
+  for (int i = 1; i <= (nxgrid - 2); i++) {
+    for (int j = 1; j <= (nygrid - 2); j++) {
+      if (i > 1) { gsl_matrix_set(H, 
+    }
+  }
+}
+*/
 
 timeevol_halves *timeevol_halves_alloc(const size_t N)
 {
