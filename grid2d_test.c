@@ -14,14 +14,18 @@
 #define PLANCK 1.0
 #define MASS   1.0
 
-#define NX 32
-#define NY 32
+#define NX 64
+#define NY 64
 
-#define HSTEP  (1.0 / ((double) NX))
+#define HSTEP  (1.0 / 32.0)
+
+#define NDSTATE 5
+#define NSTATE 50
 
 #define BUFLEN 1024
 static char buf[BUFLEN];
 
+void solve2d(const gsl_vector *V, const grid2d *g1, const char *vname);
 
 int main(void)
 {
@@ -53,8 +57,37 @@ int main(void)
 
   g1 = grid2d_new_rectangle(NX, NY);
 
-  gsl_matrix *H = gsl_matrix_calloc(g1->npts, g1->npts);
   gsl_vector *V = gsl_vector_calloc(g1->npts);
+  solve2d(V, g1, "v0");
+
+  for (size_t j = 0; j < g1->npts; j++) {
+    const long chi = g1->idxchi[j];
+    const double x = ((double) chi) * HSTEP;
+    gsl_vector_set(V, j, 40.0 * x);
+  }
+  for (size_t j = 0; j < g1->nbndry; j++) {
+    gsl_vector_set(V, g1->bndry[j], 0.0);
+  }
+  solve2d(V, g1, "v40x");
+
+  for (size_t j = 0; j < g1->npts; j++) {
+    const long chi = g1->idxchi[j];
+    const long eta = g1->idxeta[j];
+    const double x = ((double) chi) * HSTEP, y = ((double) eta) * HSTEP;
+    gsl_vector_set(V, j, 100.0 * ((x-0.5)*(x-0.5) + (y-0.5)*(y-0.5)));
+  }
+  for (size_t j = 0; j < g1->nbndry; j++) {
+    gsl_vector_set(V, g1->bndry[j], 0.0);
+  }
+  solve2d(V, g1, "v100r");
+
+  grid2d_free(g1);
+  gsl_vector_free(V);
+}
+
+void solve2d(const gsl_vector *V, const grid2d *g1, const char *vname)
+{
+  gsl_matrix *H = gsl_matrix_calloc(g1->npts, g1->npts);
   
   set_hamiltonian_sq2d(H, V, PLANCK, MASS, HSTEP, g1);
 
@@ -64,31 +97,39 @@ int main(void)
   
   eigen_solve_alloc(H, &eval, &evec);
   
-  FILE *fval = fopen("grid2ddata/eig-v0-energies.txt", "w");
+  snprintf(buf, BUFLEN, "grid2ddata/eig-%s-energies.txt", vname);
+  FILE *fval = fopen(buf, "w");
+  if (fval == NULL) { fprintf(stderr, "Could not open \"%s\"\n", buf); }
 
   for (size_t j = 0; j < evec->size2; j++) {
     fprintf(fval, "%04lu\t%0.6f\n", j, gsl_vector_get(eval, j));
 
-    snprintf(buf, BUFLEN, "grid2ddata/eig-v0-%04lu-abs2.txt", j);
-    FILE *fvec = fopen(buf, "w");
-    eigen_norm_state_alloc(evec, HSTEP, j, &psi);
-    
-    for (size_t eta = 0; eta < NY; eta++) {
-      for (size_t chi = 0; chi < NX; chi++) {
-	fprintf(fvec, "%0.6f%c", 
-		gsl_complex_abs2(gsl_vector_complex_get(psi, grid2d_index(g1, chi, NY - (eta + 1)))),
-		(chi == (NX - 1)) ? '\n' : '\t');
-      }
-    }
+    printf("j = %lu, NDSTATE = %lu, NSTATE = %lu, g1->nbndry = %lu\n",
+	 j, (size_t) NDSTATE, (size_t) NSTATE, g1->nbndry);
 
-    gsl_vector_complex_free(psi);
-    fclose(fvec);
+    if ((j + NDSTATE >= g1->nbndry) && (j <= g1->nbndry + NSTATE)) {
+      snprintf(buf, BUFLEN, "grid2ddata/eig-%s-%04lu-abs2.txt", vname, j);
+      FILE *fvec = fopen(buf, "w");
+      if (fvec == NULL) { fprintf(stderr, "Could not open \"%s\"\n", buf); }
+      
+      eigen_norm_state_alloc(evec, HSTEP, j, &psi);
+      
+      for (size_t eta = 0; eta < NY; eta++) {
+        for (size_t chi = 0; chi < NX; chi++) {
+	fprintf(fvec, "%0.6f%c", 
+	        gsl_complex_abs2(gsl_vector_complex_get(psi, grid2d_index(g1, chi, NY - (eta + 1)))),
+	        (chi == (NX - 1)) ? '\n' : '\t');
+        }
+      }
+      
+      gsl_vector_complex_free(psi);
+      fclose(fvec);
+    }
   }
   fclose(fval);
 
   gsl_matrix_free(evec);
   gsl_vector_free(eval);
+
   gsl_matrix_free(H);
-  gsl_vector_free(V);
-  grid2d_free(g1);
 }

@@ -113,7 +113,7 @@ grid2d *grid2d_new_rectangle(const size_t nchi, const size_t neta)
   list_to_array(edgelist, &(grid->nedges), &(grid->edges));
   free_list(edgelist);
 
-  grid->nbndry = 2 * (neta * nchi - 2);
+  grid->nbndry = 2 * (neta + nchi - 2);
   grid->bndry = calloc(grid->nbndry, sizeof(size_t));
   size_t i = 0;
   for (int chi = 0; chi < nchi; chi++) {
