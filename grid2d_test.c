@@ -73,8 +73,9 @@ int main(void)
   for (size_t j = 0; j < g1->npts; j++) {
     const long chi = g1->idxchi[j];
     const long eta = g1->idxeta[j];
-    const double x = ((double) chi) * HSTEP, y = ((double) eta) * HSTEP;
-    gsl_vector_set(V, j, 100.0 * ((x-0.5)*(x-0.5) + (y-0.5)*(y-0.5)));
+    const double dx = (((double) chi) - (0.5 * (double) NX)) * HSTEP;
+    const double dy = (((double) eta) - (0.5 * (double) NY)) * HSTEP;
+    gsl_vector_set(V, j, 100.0 * (dx * dx + dy * dy));
   }
   for (size_t j = 0; j < g1->nbndry; j++) {
     gsl_vector_set(V, g1->bndry[j], 0.0);

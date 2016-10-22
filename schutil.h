@@ -1,6 +1,8 @@
 #ifndef _SCHUTIL_H
 #define _SCHUTIL_H 1
 
+#include "grid2d.h"
+
 #define ASSERT_SQUARE(m, msg) { if ((m->size1) != (m->size2)) { fprintf(stderr, "%s (%lu x %lu)", msg, m->size1, m->size2); exit(1); } }
 #define ASSERT_SIZE1(m, sz, msg) { if ((m->size1 != sz)) { fprintf(stderr, "%s (%lu != %lu)", msg, m->size1, sz); exit(1); } }
 #define ASSERT_SQUARE_SIZE(m, sz, msg) { if ((m->size1 != m->size2) || (m->size1 != sz)) { fprintf(stderr, "%s (%lu x %lu != %lu)", msg, m->size1, m->size2, sz); exit(1); } }
