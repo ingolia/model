@@ -17,7 +17,6 @@
 #include "writing.h"
 
 #define NPTS 256
-#define MIDDLE ((NPTS+1)/2)
 #define STATESIZE (NPTS + 2)
 
 #define PLANCK 4.0
@@ -36,7 +35,7 @@
 void vtwell(gsl_vector *V)
 {
   for (size_t i = 1; (i + 1) < V->size; i++) {
-    const double x = ((double) i) * HSTEP, x0 = ((double) MIDDLE) * HSTEP, dx = (x - x0);
+    const double x = ((double) i) * HSTEP, x0 = ((double) NPTS + 1) / 2.0 * HSTEP, dx = (x - x0);
     gsl_vector_set(V, i, 0.5 * V0 * dx * dx);
   }
 }
@@ -52,6 +51,10 @@ void evolve(void)
 {
   gsl_vector *V = gsl_vector_calloc(STATESIZE);
   vtwell(V);
+  FILE *Vfile = fopen("coherdata/V.txt", "w");
+  if (Vfile == NULL) { fprintf(stderr, "Failed to open V file\n"); exit(1); }
+  fwrite_vector(Vfile, V);
+  fclose(Vfile);
   
   gsl_matrix *H0 = gsl_matrix_alloc(STATESIZE, STATESIZE);
 
