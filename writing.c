@@ -8,6 +8,13 @@
 #include <gsl/gsl_vector.h>
 #include <gsl/gsl_vector_complex_double.h>
 
+void fwrite_vector(FILE *f, const gsl_vector *V)
+{
+  for (int j = 0; j < V->size; j++) {
+    fprintf(f, "%0.6f\n", gsl_vector_get(V, j));
+  }
+}
+
 void fwrite_vector_complex_thorough(FILE *f, const gsl_vector_complex *V)
 {
   for (int j = 0; j < V->size; j++) {
