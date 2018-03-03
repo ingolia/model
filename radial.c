@@ -16,54 +16,177 @@
 #include "schutil.h"
 #include "writing.h"
 
-#define NPTS 512
+#define NPTS 2048
 #define STATESIZE (NPTS + 2)
 
 #define PLANCK 4.0
 #define MASS 1.0
-#define HSTEP (1.0/32.0)
+#define HSTEP (8.0 / ((double) NPTS))
 #define TSTEP (8.0/65536.0)
 #define WRITEEVERY 256
 
 #define TFINAL 40.0
 
-#define V0 8.0
+#define V0 -16.0
 
+#define STATE_MAX 4
 #define STATE0 1
 
 #define OFFSET 32
 
-void vtwell_one(gsl_vector *V)
-{
-  for (size_t i = 0; i < V->size; i++) {
-    const double x = ((double) i) * HSTEP, x0 = ((double) NPTS + 1) / 2.0 * HSTEP, dx = fabs(x - x0);
-    if (dx < HSTEP/2.01) { fprintf(stderr, "vtwell: |dx| = %0.3g < %0.3g\n", dx, HSTEP/2.01); exit(1); }
-    gsl_vector_set(V, i, -V0 / dx);
-  }
-}
-
-void vtwell_two(gsl_vector *V)
-{
+void v_rwell_one(gsl_vector *V, double xa, double Va) {
   for (size_t i = 0; i < V->size; i++) {
     const double x = ((double) i) * HSTEP;
-    const double xa = ((double) NPTS + OFFSET + 1) / 2.0 * HSTEP;
-    const double xb = ((double) NPTS - OFFSET + 1) / 2.0 * HSTEP;
-    const double dxa = fabs(x - xa), dxb = fabs(x - xb);
-    gsl_vector_set(V, i, (-V0 / dxa) + (-V0 / dxb));
+    const double dx = fabs(x - xa);
+    gsl_vector_set(V, i, Va / dx);
   }
 }
 
+void v_rwell_two(gsl_vector *V, double xa, double xb, double Va, double Vb) {
+  for (size_t i = 0; i < V->size; i++) {
+    const double x = ((double) i) * HSTEP;
+    const double dxa = fabs(x - xa), dxb = fabs(x - xb);
+    gsl_vector_set(V, i, (Va / dxa) + (Vb / dxb));
+
+    if (0) {
+      printf("%lu\t%0.6f\t%0.6f\t%0.6f\t%0.6f\n",
+	   i, x, dxa, dxb, gsl_vector_get(V, i));
+    }
+  }
+}
+
+typedef struct {
+  size_t noffset;
+  double nucdist;
+  double E0;
+  double E1;
+  double Enucrep;
+  double Eelerep;
+} spectrum_results;
+
+void spectrum(spectrum_results *res, size_t offset);
 void evolve(void);
 
 int main(void)
 {
-  evolve();
+  FILE *f = fopen("radialdata/distance-energetics.txt", "w");
+  if (f == NULL) { fprintf(stderr, "Cannot open output data file\n"); exit(1); }
+  
+  spectrum_results specres;
+  for (size_t offset = 2; offset < NPTS/4; offset += 2) {
+    spectrum(&specres, offset);  
+    fprintf(f, "%lu\t%0.6f\t%0.6f\t%0.6f\t%0.6f\t%0.6f\n",
+	  specres.noffset, specres.nucdist,
+	  specres.E0, specres.E1, specres.Enucrep, specres.Eelerep);
+
+    printf("%lu\t%0.6f\t%0.6f\t%0.6f\t%0.6f\t%0.6f\n",
+	 specres.noffset, specres.nucdist,
+	 specres.E0, specres.E1, specres.Enucrep, specres.Eelerep);
+  }
+
+  fclose(f);
+}
+
+void spectrum(spectrum_results *results, size_t noffset)
+{
+  gsl_vector *V = gsl_vector_calloc(STATESIZE);
+  char *prefix, *filename;
+  if (asprintf(&prefix, "radialdata/spectrum-x%03lu", noffset) < 0) { exit(1); }
+
+  const double xa = HSTEP * ((double) NPTS + (double) noffset + 1) / 2.0;
+  const double xb = HSTEP * ((double) NPTS - (double) noffset + 1) / 2.0;
+
+  results->noffset = noffset;
+  results->nucdist = fabs(xb - xa);
+  
+  v_rwell_two(V, xa, xb, V0, V0);
+
+  if (asprintf(&filename, "%s-V.txt", prefix) < 0) { exit(1); }
+  FILE *Vfile = fopen(filename, "w");
+  if (Vfile == NULL) { fprintf(stderr, "Failed to open V file %s\n", filename); exit(1); }
+  free(filename);
+  fwrite_vector(Vfile, V);
+  fclose(Vfile);
+  
+  gsl_matrix *H0 = gsl_matrix_alloc(STATESIZE, STATESIZE);
+
+  set_hamiltonian(H0, V, PLANCK, MASS, HSTEP);
+
+  gsl_vector *eval;
+  gsl_matrix *evec;
+  gsl_vector_complex **psis = calloc(sizeof(gsl_vector_complex *), STATE_MAX);
+
+  if (asprintf(&filename, "%s-E.txt", prefix) < 0) { exit (1); }
+  FILE *Efile = fopen(filename, "w");
+  if (Efile == NULL) { fprintf(stderr, "Failed to open E file %s\n", filename); exit(1); }
+  free(filename);
+  
+  eigen_solve_alloc(H0, &eval, &evec);
+  for (int i = 0; i < STATE_MAX; i++) {
+    eigen_norm_state_alloc(evec, HSTEP, i, &(psis[i]));
+
+    if (asprintf(&filename, "%s-psi-%02d.txt", prefix, i) < 0) { exit(1); }
+    FILE *eigi = fopen(filename, "w");
+    if (eigi == NULL) { fprintf(stderr, "Failed to open %s\n", filename); exit(1); }
+    free(filename);
+    fwrite_vector_complex_thorough(eigi, psis[i]);
+    fclose(eigi);
+    
+    fprintf(Efile, "%d\t%0.3f\n", i, gsl_vector_get(eval, i));
+  }  
+
+  fclose(Efile);
+
+  results->E0 = gsl_vector_get(eval, 0);
+  results->E1 = gsl_vector_get(eval, 1);
+  results->Enucrep = 2 * (-V0) / (xa - xb);
+
+  double Eelerep = 0.0;
+  for (size_t i = 0; i < psis[0]->size; i++) {
+    for (size_t j = 0; j < psis[1]->size; j++) {
+      const double xi = HSTEP * ((double) i);
+      const double xj = HSTEP * ((double) j);
+      const double dxij = 0.5 + fabs(xi - xj);
+      const double Eij = (-V0) / dxij;
+      const double occij = gsl_complex_abs2(gsl_vector_complex_get(psis[0], i))
+        * gsl_complex_abs2(gsl_vector_complex_get(psis[1], j))
+        * HSTEP * HSTEP;
+      Eelerep += Eij * occij;
+    }
+  }
+  results->Eelerep = Eelerep;
+  
+  if (0) {
+    printf("\033[2J\033[H");
+    
+    gsl_vector_complex *psi0_disp;
+    downsample_vector_complex_alloc(&psi0_disp, psis[0], 2);
+    terminal_graph_abs2(psi0_disp, 24, 5.0);
+    gsl_vector_complex_free(psi0_disp);
+    puts("");
+    downsample_vector_complex_alloc(&psi0_disp, psis[1], 2);
+    terminal_graph_abs2(psi0_disp, 24, 5.0);
+    gsl_vector_complex_free(psi0_disp);
+  }
+
+  gsl_vector_free(V);
+  gsl_matrix_free(H0);
+  gsl_vector_free(eval);
+  gsl_matrix_free(evec);
+  for (int i = 0; i < STATE_MAX; i++) {
+    gsl_vector_complex_free(psis[i]);
+  }
+  free(psis);
+  free(prefix);
 }
 
 void evolve(void)
 {
   gsl_vector *V = gsl_vector_calloc(STATESIZE);
-  vtwell_two(V);
+  v_rwell_two(V,
+	    HSTEP * ((double) NPTS + OFFSET + 1) / 2.0,
+	    HSTEP * ((double) NPTS - OFFSET + 1) / 2.0,
+	    V0, V0);
   FILE *Vfile = fopen("radialdata/V.txt", "w");
   if (Vfile == NULL) { fprintf(stderr, "Failed to open V file\n"); exit(1); }
   fwrite_vector(Vfile, V);
