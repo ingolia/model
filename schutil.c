@@ -39,6 +39,35 @@ void set_hamiltonian(gsl_matrix *H, const gsl_vector *V, const double planck, co
   }
 }
 
+void set_hamiltonian_circular(gsl_matrix *H, const gsl_vector *V, const double planck, const double mass, const double hstep)
+{
+  const size_t npts = H->size1;
+
+  ASSERT_SQUARE(H, "set_hamiltonian: H not square");
+  ASSERT_SIZE1(H, V->size, "set_hamiltonian: dim(H) != dim(V)");
+  
+  gsl_matrix_set_all(H, 0.0);
+
+  const double pfact = -0.5 * planck * planck / mass;
+  const double hstep2 = 1.0 / (hstep * hstep);
+
+  for (int j = 0; j < npts; j++) {
+    if (j > 0) {
+      gsl_matrix_set(H, j, j-1, pfact * hstep2);
+    } else {
+      gsl_matrix_set(H, j, npts-1, pfact * hstep2);
+    }
+    
+    if (j + 1 < npts) {
+      gsl_matrix_set(H, j, j+1, pfact * hstep2);
+    } else {
+      gsl_matrix_set(H, j, 0, pfact * hstep2);
+    }
+
+    gsl_matrix_set(H, j, j, -2.0 * pfact * hstep2 + gsl_vector_get(V, j));
+  }
+}
+
 void set_hamiltonian_sq2d(gsl_matrix *H, const gsl_vector *V, const double planck, const double mass, const double hstep, const grid2d *grid)
 {
   ASSERT_SQUARE_SIZE(H, grid->npts, "set_hamiltonian: dim(H) != |grid|");

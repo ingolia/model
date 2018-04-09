@@ -14,6 +14,8 @@ void write_psi(const char *prefix, const gsl_matrix *Psis, const gsl_vector *Es)
 
 void set_hamiltonian(gsl_matrix *H, const gsl_vector *V, const double planck, const double mass, const double hstep);
 
+void set_hamiltonian_circular(gsl_matrix *H, const gsl_vector *V, const double planck, const double mass, const double hstep);
+
 void set_hamiltonian_sq2d(gsl_matrix *H, const gsl_vector *V, const double planck, const double mass, const double hstep, const grid2d *grid);
 
 /* Time evolution matrices */
