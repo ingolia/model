@@ -24,7 +24,7 @@
 #define MASS   1.0
 #define V0MAX  5.0
 #define HSTEP (8.0 / ((double) NPTS))
-#define TSTEP (8.0/65536.0)
+#define TSTEP (4.0/65536.0)
 
 #define WRITEEVERY 512
 
@@ -144,41 +144,6 @@ int vstep_for_tstep(int tstep) {
   }
 }
 
-double v_scale_abrupt(int tstep)
-{
-  const double t = tstep * TSTEP; 
-  if (t < TON) { return 0.0; }
-  else if (t < TOFF) { return V0MAX; }
-  else { return 0.0; }
-}
-
-double v_scale_stepwise(int tstep)
-{
-  const int tstep_on = tstep - (TON / TSTEP);
-  const int tstep_off = tstep - (TOFF / TSTEP);
-  if (tstep_on < 0) { return 0.0; }
-  else if (tstep_off < 0) {
-    const int nstep = tstep_on / WRITEEVERY;
-    if (nstep >= NSTEPS) {
-      return V0MAX;
-    } else {
-      return V0MAX * ( ((double) nstep) / ((double) NSTEPS) );
-    }
-  }
-  else { return 0.0; }
-}
-
-void v_triangle(gsl_vector *V, double scale)
-{
-  int halfsize = V->size / 2;
-  double istep = scale / ((double) halfsize);
-  for (int i = 0; i < (V->size / 2); i++) {
-    gsl_vector_set(V, i, istep * (double) i);
-    gsl_vector_set(V, V->size - (i + 1), istep * (double) i);
-  }
-}
-
-// Pure sine potential causes uniform phase roll
 // Integral of (1 - cos th) over a full cycle = +1
 // Need -0.5 over all points
 void v_sin(gsl_vector *V, double scale)
@@ -195,13 +160,6 @@ void v_sin(gsl_vector *V, double scale)
     gsl_vector_set(V, i, -0.5 * scale);
   }
 }
-
-void vtstep(gsl_vector *V, int tstep)
-{
-  v_sin(V, v_scale_stepwise(tstep));
-}
-
-void terminal_graph_raw(const gsl_vector *v, const unsigned int nlines, char filled);
 
 /*
     vtstep(V, tstep);
@@ -248,6 +206,7 @@ void evolve(gsl_vector *const Vs[NSTEPS], const precomputed_timeevol *Uall)
   
   for (int tstep = 0; (tstep * TSTEP) <= TFINAL; tstep++) {
     const double t = tstep * TSTEP;
+    const int vstep_curr = vstep_for_tstep(tstep);
 
     if (tstep % WRITEEVERY == 0) {
       for (int i = 0; i < STATESIZE; i++) {
@@ -255,7 +214,7 @@ void evolve(gsl_vector *const Vs[NSTEPS], const precomputed_timeevol *Uall)
       }
       gsl_vector_complex_scale(psieig, hstep_c);
 
-      gsl_vector_memcpy(Vdisp, V);
+      gsl_vector_memcpy(Vdisp, Vs[vstep_curr]);
       gsl_vector_add_constant(Vdisp, V0MAX);
       gsl_vector_scale(Vdisp, 0.25 / V0MAX);
       
@@ -273,7 +232,6 @@ void evolve(gsl_vector *const Vs[NSTEPS], const precomputed_timeevol *Uall)
       fwrite_vector_complex_abs2(psi1t, psi);
     }
 
-    const int vstep_curr = vstep_for_tstep(tstep);
     const int vstep_next = vstep_for_tstep(tstep+1);
 
     const timeevol_halves *U;
