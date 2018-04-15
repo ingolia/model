@@ -9,7 +9,6 @@
 #include <gsl/gsl_vector_complex_double.h>
 
 #define MIN_ABS2 1e-6
-static void terminal_graph_raw(const gsl_vector *v, const unsigned int nlines, char filled);
 
 void fwrite_vector(FILE *f, const gsl_vector *V)
 {

@@ -16,5 +16,6 @@ void downsample_vector_complex_alloc(gsl_vector_complex **vv, const gsl_vector_c
 void terminal_graph_abs(const gsl_vector_complex *psi, const int, const double);
 void terminal_graph_abs2(const gsl_vector_complex *psi, const int, const double);
 void terminal_graph_phase(const gsl_vector_complex *psi, const int);
+void terminal_graph_raw(const gsl_vector *v, const unsigned int nlines, char filled);
 
 #endif /* defined(_WRITING_H) */

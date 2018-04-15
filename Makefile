@@ -6,7 +6,7 @@ LOADLIBES=-lgsl -lblas -lm
 HEADERS=schutil.h writing.h grid2d.h
 OBJS=schutil.o writing.o grid2d.o
 
-PROGS=d1p1 tvar tetest stationary grid2d_test coherent radial
+PROGS=d1p1 tvar tetest stationary grid2d_test coherent radial circular
 
 all: $(PROGS)
 
