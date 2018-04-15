@@ -85,6 +85,31 @@ void set_hamiltonian_sq2d(gsl_matrix *H, const gsl_vector *V, const double planc
   }
 }
 
+// <psi' | H | psi>
+// Take psi = a + bi for a, b real and psi' = a - bi
+// <psi' | H | a+bi> = <psi' | H | a> + i <psi' | H | b>
+//                   = <a|H|a> - i <b|H|a> + i <a|H|b> + i (-i <b|H|b>)
+// H symmetric, <b|H|a> = <a|H|b> and kill imaginary terms
+//                   = <a|H|a> + <b|H|b>
+double get_energy(const gsl_matrix *H, const double hstep, const gsl_vector_complex *psi)
+{
+  gsl_vector_const_view a = gsl_vector_complex_const_real(psi);
+  gsl_vector_const_view b = gsl_vector_complex_const_imag(psi);
+
+  gsl_vector *q = gsl_vector_alloc(psi->size);
+  double aHa;
+  gsl_blas_dsymv(CblasUpper, 1.0, H, &(a.vector), 0.0, q);
+  gsl_blas_ddot(&(a.vector), q, &aHa);
+
+  double bHb;
+  gsl_blas_dsymv(CblasUpper, 1.0, H, &(b.vector), 0.0, q);
+  gsl_blas_ddot(&(b.vector), q, &bHb);
+  
+  gsl_vector_free(q);
+
+  return (aHa + bHb) * hstep;
+}
+
 /*
 inline size_t sq2d_idx(const size_t nxgrid, const size_t nygrid, size_t x, size_t y) { return (y * nxgrid) + x; }
 

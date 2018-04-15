@@ -8,6 +8,8 @@
 #include <gsl/gsl_vector.h>
 #include <gsl/gsl_vector_complex_double.h>
 
+#include "writing.h"
+
 #define MIN_ABS2 1e-6
 
 void fwrite_vector(FILE *f, const gsl_vector *V)

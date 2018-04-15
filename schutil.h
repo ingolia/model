@@ -18,6 +18,8 @@ void set_hamiltonian_circular(gsl_matrix *H, const gsl_vector *V, const double p
 
 void set_hamiltonian_sq2d(gsl_matrix *H, const gsl_vector *V, const double planck, const double mass, const double hstep, const grid2d *grid);
 
+double get_energy(const gsl_matrix *H, const double hstep, const gsl_vector_complex *psi);
+
 /* Time evolution matrices */
 /* H0, H1 = Hamiltonians at t0, t1
  * Make H = (H0 + H1) / 2
