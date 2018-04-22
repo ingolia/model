@@ -263,8 +263,13 @@ void evolve(gsl_vector *const Vs[NSTEPS], gsl_matrix *const Hs[NSTEPS], const fa
   
   for (int tstep = 0; (tstep * TSTEP) <= TFINAL; tstep++) {
     const double t = tstep * TSTEP;
-    const int vstep_curr = vstep_for_tstep(5.0, 25.0, tstep);
 
+    const double ton = (t < 25.0) ? 15.0 : (t < 45.0 ? 33.0 : 51.0);
+    const double toff = ton + 2.5;
+    
+    const int vstep_curr = vstep_for_tstep(ton, toff, tstep);
+    const int vstep_next = vstep_for_tstep(ton, toff, tstep+1);
+      
     if (tstep % WRITEEVERY == 0) {
       fprintf(f, "%d", tstep);
       for (int i = 0; i < STATESIZE; i++) {
@@ -291,8 +296,6 @@ void evolve(gsl_vector *const Vs[NSTEPS], gsl_matrix *const Hs[NSTEPS], const fa
       puts("");
       terminal_graph_raw(Vdisp, 16, '%');
     }
-
-    const int vstep_next = vstep_for_tstep(5.0, 25.0, tstep+1);
 
     const timeevol_halves *U;
 
@@ -355,3 +358,10 @@ fade_timeevol *make_fade_timeevol(gsl_matrix *const Hs[NSTEPS])
 //   \omega = E / \hbar and \omega_1 = \hbar/(2m)
 // Bigger \hbar or smaller m => faster frequency
 // \hbar 4.0 and m 1.0 means \omega 2 and period 4 \pi
+
+// Controlling system
+// State A = \sum_i a_i \psi_i
+// Changing potential => change of basis
+// Evolve in altered basis for a certain amount of time
+// Change basis back
+// Time evolution in proper basis is a diagonal basis

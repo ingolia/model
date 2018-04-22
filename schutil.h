@@ -21,12 +21,23 @@ void set_hamiltonian_sq2d(gsl_matrix *H, const gsl_vector *V, const double planc
 double get_energy(const gsl_matrix *H, const double hstep, const gsl_vector_complex *psi);
 
 /* Time evolution matrices */
-/* H0, H1 = Hamiltonians at t0, t1
- * Make H = (H0 + H1) / 2
- * A = ((i / tstep) I - 0.5 H), cf i hbar dPsi/dt - 0.5 Havg
- * B = ((i / tstep) I + 0.5 H), cf i hbar dPsi/dt + 0.5 Havg
- * A Psi(t1) = B Psi(t0) OR Psi(t1) = A^{-1} B Psi(t0)
- * U = A^{-1} B
+/* H_0, H_1 = Hamiltonians at t = 0, 1
+ * Make H = (H_0 + H_1) / 2
+ * i \hbar d\Psi/dt = H \Psi
+ * d\Psi/dt ~ (1 / tstep) (\Psi(t + tstep) - \Psi(t))
+ * i \hbar (1 / tstep) (\Psi(t + tstep) - \Psi(t)) = 0.5 (H \Psi(t + tstep) + H \Psi(t))
+ * i \hbar (1 / tstep) \Psi(t + tstep) - 0.5 H \Psi(t + tstep) 
+ *   = i \hbar (1 / tstep) \Psi(t) + 0.5 H \Psi(t)
+ * (i \hbar (1 / tstep) I - 0.5 H) \Psi(t + step)
+ *   = (i \hbar (1 / tstep) I + 0.5 H) \Psi(t)
+ * A = ((i \hbar / tstep) I - 0.5 H)
+ * B = ((i \hbar / tstep) I + 0.5 H)
+ * A Psi(t + tstep) = B Psi(t) OR Psi_next = A^{-1} B Psi_curr
+ *   (A^{-1} B)^*
+ *   = ((i c I - 0.5 H)^{-1} (i c I + 0.5 H))^*
+ *   ...
+ *   = (A^{-1} B)^{-1}
+ * i.e., unitary
  */
 
 typedef struct {
