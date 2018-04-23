@@ -5,6 +5,7 @@ typedef struct {
   size_t statesize;
   double planck;
   double tstep;
+  double hstep;
 } params;
 
 #endif /* defined(_PARAMS_H) */

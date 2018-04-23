@@ -20,6 +20,9 @@ void fwrite_vector_complex_arg(FILE *f, const gsl_vector_complex *psi);
 void fwrite_matrix_complex(FILE *f, const gsl_matrix_complex *M);
 void fwrite_matrix(FILE *f, const gsl_matrix *M);
 
+void check_symmetry(const gsl_matrix *M);
+void check_unitarity(const gsl_matrix_complex *M, FILE *fdebug);
+
 void check_deviation(const gsl_matrix *Z, size_t *imax, size_t *jmax, double *absmax, double *norm);
 
 #endif /* !defined(_SCHDEBUG_H) */
