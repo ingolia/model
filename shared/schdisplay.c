@@ -47,7 +47,7 @@ void terminal_graph_phase(const gsl_vector_complex *psi, const int nlines)
   for (int j = nlines; j > 0; j--) {
     double linemin = (((double) j) - 1.0) * lineheight;
     double linemax = (((double) j)      ) * lineheight;
-    printf("%0.4f |", linemin);
+    printf(" %6.2f |", linemin);
     for (int i = 0; i < psi->size; i++) {
       if ((gsl_vector_get(g, i) > MIN_ABS2) &&
 	(gsl_vector_get(h, i) > linemin && gsl_vector_get(h, i) <= linemax)) {
@@ -67,7 +67,7 @@ void terminal_graph_raw(const gsl_vector *v, double ymin, double ymax,
 
   for (int j = nlines; j > 0; j--) {
     double hthresh = ymin + (((double) j) - 0.5) * lineheight;
-    printf("% 0.4f |", hthresh);
+    printf("% 7.2f |", hthresh);
     for (int i = 0; i < v->size; i++) {
       if (gsl_vector_get(v, i) > hthresh) {
         putchar(filled);
