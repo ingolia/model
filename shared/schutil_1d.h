@@ -1,5 +1,5 @@
-#ifndef _SCHUTIL_H
-#define _SCHUTIL_H 1
+#ifndef _SCHUTIL_1D_H
+#define _SCHUTIL_1D_H 1
 
 void set_hamiltonian_bounded(gsl_matrix *H, 
 			     const params *params,
@@ -11,4 +11,4 @@ void set_hamiltonian_circular(gsl_matrix *H,
 			      const gsl_vector *V,
 			      const double mass);
 
-#endif
+#endif /* defined(_SCHUTIL_1D) */

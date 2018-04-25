@@ -13,6 +13,7 @@
 #include <gsl/gsl_permutation.h>
 #include <gsl/gsl_vector.h>
 
+#include "params.h"
 #include "schutil.h"
 
 // <psi' | H | psi>
@@ -21,7 +22,7 @@
 //                   = <a|H|a> - i <b|H|a> + i <a|H|b> + i (-i <b|H|b>)
 // H symmetric, <b|H|a> = <a|H|b> and kill imaginary terms
 //                   = <a|H|a> + <b|H|b>
-double get_energy(const gsl_matrix *H, const double hstep, const gsl_vector_complex *psi)
+double get_energy(const gsl_matrix *H, const params *params, const gsl_vector_complex *psi)
 {
   gsl_vector_const_view a = gsl_vector_complex_const_real(psi);
   gsl_vector_const_view b = gsl_vector_complex_const_imag(psi);
@@ -37,7 +38,7 @@ double get_energy(const gsl_matrix *H, const double hstep, const gsl_vector_comp
   
   gsl_vector_free(q);
 
-  return (aHa + bHb) * hstep;
+  return (aHa + bHb) * params->hstep;
 }
 
 void eigen_solve_alloc(const gsl_matrix *Hin, gsl_vector **eval, gsl_matrix **evec)

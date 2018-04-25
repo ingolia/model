@@ -119,6 +119,87 @@ void write_psi(const char *prefix, const gsl_matrix *Psis, const gsl_vector *Es)
   fclose(fout);
 }
 
+void fwrite_vector(FILE *f, const gsl_vector *V)
+{
+  for (int j = 0; j < V->size; j++) {
+    fprintf(f, "%0.6f\n", gsl_vector_get(V, j));
+  }
+}
+
+void fwrite_vector_complex_thorough(FILE *f, const gsl_vector_complex *V)
+{
+  for (int j = 0; j < V->size; j++) {
+    gsl_complex Vj = gsl_vector_complex_get(V, j);
+    
+    fprintf(f, "%4d %0.4f+%0.4fi  %0.6f  %0.3f\n", 
+	  j, GSL_REAL(Vj), GSL_IMAG(Vj),
+	  gsl_complex_abs(Vj), gsl_complex_arg(Vj));
+  }
+}
+
+void fwrite_matrix(FILE *f, const gsl_matrix *M)
+{
+  fprintf(f, "j");
+  for (int k = 0; k < M->size2; k++) {
+    fprintf(f, "\tk%d", k);
+  }
+  fprintf(f, "\n");
+
+  for (int j = 0; j < M->size1; j++) {
+    fprintf(f, "%d", j);
+
+    for (int k = 0; k < M->size2; k++) {
+      fprintf(f, "\t%0.4f", gsl_matrix_get(M, j, k));
+    }
+
+    fprintf(f, "\n");
+  }
+}
+
+void fwrite_matrix_complex(FILE *f, const gsl_matrix_complex *M)
+{
+  fprintf(f, "j");
+  for (int k = 0; k < M->size2; k++) {
+    fprintf(f, "\tk%d", k);
+  }
+  fprintf(f, "\n");
+
+  for (int j = 0; j < M->size1; j++) {
+    fprintf(f, "%d", j);
+
+    for (int k = 0; k < M->size2; k++) {
+      const gsl_complex Mjk = gsl_matrix_complex_get(M, j, k);
+      fprintf(f, "\t%0.4f+%0.4fi", GSL_REAL(Mjk), GSL_IMAG(Mjk));
+    }
+
+    fprintf(f, "\n");
+  }
+}
+
+void fwrite_vector_complex_abs2(FILE *f, const gsl_vector_complex *psi)
+{
+  for (int j = 0; j < psi->size; j++) {
+    fprintf(f, "\t%0.6f", gsl_complex_abs2(gsl_vector_complex_get(psi, j)));
+  }
+  fprintf(f, "\n");
+}
+
+void fwrite_vector_complex_abs(FILE *f, const gsl_vector_complex *psi)
+{
+  for (int j = 0; j < psi->size; j++) {
+    fprintf(f, "\t%0.6f", gsl_complex_abs(gsl_vector_complex_get(psi, j)));
+  }
+  fprintf(f, "\n");
+}
+
+void fwrite_vector_complex_arg(FILE *f, const gsl_vector_complex *psi)
+{
+  for (int j = 0; j < psi->size; j++) {
+    fprintf(f, "\t%0.3f", gsl_complex_arg(gsl_vector_complex_get(psi, j)));
+  }
+  fprintf(f, "\n");
+}
+
 void check_symmetry(const gsl_matrix *M)
 {
   if (M->size1 != M->size2) {

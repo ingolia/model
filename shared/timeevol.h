@@ -32,6 +32,17 @@ typedef struct {
 timeevol *timeevol_alloc(const params *params);
 void timeevol_free(timeevol *U);
 
+void timeevol_set_real(timeevol *U,
+		       const gsl_matrix *Hreal,
+		       const params *params,
+		       FILE *fdebug);
+
+void timeevol_set_real_average(timeevol *U,
+			       const gsl_matrix *Hreal1,
+			       const gsl_matrix *Hreal2,
+			       const params *params,
+			       FILE *fdebug);
+
 void timeevol_set(timeevol *U,
 		  const gsl_matrix_complex *Havg,
 		  const params *params,

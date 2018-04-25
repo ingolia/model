@@ -48,7 +48,45 @@ void timeevol_free(timeevol *U)
   }
 */
 
+void timeevol_set_real(timeevol *U,
+		       const gsl_matrix *Hreal,
+		       const params *params,
+		       FILE *fdebug)
+{
+  ASSERT_SQUARE_SIZE(Hreal, params->statesize, "timeevol_set_real: Hreal size bad");
 
+  gsl_matrix_complex *H = gsl_matrix_complex_alloc(Hreal->size1, Hreal->size2);
+  for (int i = 0; i < Hreal->size1; i++) {
+    for (int j = 0; j < Hreal->size2; j++) {
+      gsl_matrix_complex_set(H, i, j, 
+			     gsl_complex_rect(gsl_matrix_get(Hreal, i, j), 0.0));
+    }
+  }
+  timeevol_set(U, H, params, fdebug);
+  gsl_matrix_complex_free(H);
+}
+
+void timeevol_set_real_average(timeevol *U,
+			       const gsl_matrix *Hreal1,
+			       const gsl_matrix *Hreal2,
+			       const params *params,
+			       FILE *fdebug)
+{
+  ASSERT_SQUARE_SIZE(Hreal1, params->statesize, "timeevol_set_real_average: Hreal1 size bad");
+  ASSERT_SQUARE_SIZE(Hreal2, params->statesize, "timeevol_set_real_average: Hreal2 size bad");
+
+  gsl_matrix_complex *H = gsl_matrix_complex_alloc(Hreal1->size1, Hreal1->size2);
+  for (int i = 0; i < Hreal1->size1; i++) {
+    for (int j = 0; j < Hreal1->size2; j++) {
+      const double avg = 0.5 * (gsl_matrix_get(Hreal1, i, j)
+				+ gsl_matrix_get(Hreal2, i, j));
+      gsl_matrix_complex_set(H, i, j, gsl_complex_rect(avg, 0.0));
+    }
+  }
+  timeevol_set(U, H, params, fdebug);
+  gsl_matrix_complex_free(H);
+  
+}
 
 void timeevol_set(timeevol *U,
 		  const gsl_matrix_complex *Havg,
