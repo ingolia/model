@@ -1,0 +1,27 @@
+// Verifying constants, etc.
+// \psi_1(x) = a sin(x)
+// <\psi_1'|\psi_1> = a^2 \int_0^{2\pi} sin^2(x)
+//   = a^2 \int_0^{2\pi} 1/2 (1 - cos(2x))
+//   = a^2 1/2 (2\pi)
+//   = a^2 \pi
+// and so a = 1/sqrt(pi) = 1.0 / M_SQRTPI 
+// <\psi_1'|H|\psi_1> = \int_0^{2\pi} dx a sin (x) (-\hbar^2)/(2m) (a sin(x))''
+//   =  \int_0^{2\pi} dx a sin(x) (-\hbar^2)/(2m) (-a sin(x))
+//   =  \int_0^{2\pi} dx a^2 (\hbar^2)/(2m) sin^2(x)
+//   =  \int_0^{2\pi} dx (1/\pi) (\hbar^2)/(2m) (1/2) (1 - cos(2x))
+//   = (1/\pi) (\hbar^2)/(2m) (1/2) (2\pi) - \int_0^{2\pi} dx ... cos(2x)
+//   = (\hbar^2)/(2m)
+// And for a sin(kx), a=(\pi)^{-1/2} and E = k^2 E_1
+// Frequency, E \Psi(t) = i \hbar \Psi(t)'
+//   \Psi(t)' = (- i E / \hbar) \Psi(t)
+//   \Psi(t) = \Psi(0) exp(-i (E / \hbar) t)
+//   \omega = E / \hbar and \omega_1 = \hbar/(2m)
+// Bigger \hbar or smaller m => faster frequency
+// \hbar 4.0 and m 1.0 means \omega 2 and period 4 \pi
+
+// Controlling system
+// State A = \sum_i a_i \psi_i
+// Changing potential => change of basis
+// Evolve in altered basis for a certain amount of time
+// Change basis back
+// Time evolution in proper basis is a diagonal basis
