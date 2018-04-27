@@ -25,4 +25,6 @@ void check_unitarity(const gsl_matrix_complex *M, FILE *fdebug);
 
 void check_deviation(const gsl_matrix *Z, size_t *imax, size_t *jmax, double *absmax, double *norm);
 
+FILE *fopenf(const char *mode, const char *fmt, ...);
+
 #endif /* !defined(_SCHDEBUG_H) */

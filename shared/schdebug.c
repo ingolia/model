@@ -1,6 +1,8 @@
 #define _GNU_SOURCE
 #include <math.h>
+#include <stdarg.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 
 #include <gsl/gsl_blas.h>
@@ -279,4 +281,27 @@ void check_deviation(const gsl_matrix *Z, size_t *imax, size_t *jmax, double *ab
       (*norm) += (Zij * Zij);
     }
   }
+}
+
+FILE *fopenf(const char *mode, const char *fmt, ...)
+{
+  char *fname;
+
+  va_list ap;
+  va_start(ap, fmt);
+  if (vasprintf(&fname, fmt, ap) < 0) {
+    fprintf(stderr, "Unable to format filename\n");
+    exit(1);
+  }
+  va_end(ap);
+
+  FILE *f = fopen(fname, mode);
+  if (f == NULL) {
+    fprintf(stderr, "Unable to open \"%s\"\n", fname);
+    exit(1);
+  }
+
+  free(fname);
+
+  return f;
 }

@@ -7,6 +7,7 @@ void potential_test_stationary(const params *params,
 			       const gsl_vector *V,
 			       const double mass,
 			       unsigned int nstates,
+			       gsl_vector_complex ***psis,
 			       double **Es);
 
 #endif /* defined(_POTENTIAL_H) */

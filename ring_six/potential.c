@@ -44,6 +44,7 @@ void potential_test_stationary(const params *params,
 			       const gsl_vector *V,
 			       const double mass,
 			       unsigned int nstates,
+			       gsl_vector_complex ***psis,
 			       double **Es)
 {
   const size_t statesize = params->statesize;
@@ -55,27 +56,25 @@ void potential_test_stationary(const params *params,
   gsl_matrix *evec;
 
   *Es = calloc(nstates, sizeof(double));
+  *psis = calloc(nstates, sizeof(gsl_vector_complex *));
   
   eigen_solve_alloc(H, &eval, &evec);
 
   for (int i = 0; (i < nstates); i++) {
-    gsl_vector_complex *psi_i;
-    eigen_norm_state_alloc(evec, params->hstep, i, &psi_i);
+    eigen_norm_state_alloc(evec, params->hstep, i, &((*psis)[i]));
 
-    (*Es)[i] = get_energy(H, params, psi_i);
+    (*Es)[i] = get_energy(H, params, (*psis)[i]);
 
     printf("\033[2J\033[H");
     printf("i = %d\nE = %0.2f\n", i, (*Es)[i]);
-    terminal_graph_abs2(psi_i, 12, 0.5);
+    terminal_graph_abs2((*psis)[i], 12, 0.5);
     puts("");
-    terminal_graph_phase(psi_i, 8);
+    terminal_graph_phase((*psis)[i], 8);
 
     puts("");
     terminal_graph_raw(V, gsl_vector_min(V), gsl_vector_max(V), 16, '%');
 
-    gsl_vector_complex_free(psi_i);
-
-    sleep(1);
+    //    sleep(1);
   }
 
   gsl_matrix_free(H);
