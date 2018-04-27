@@ -32,7 +32,7 @@
 #define HSTEP (LENGTH / ((double) STATESIZE))
 #define TSTEP (1.0/4096.0)
 
-#define NSTATES 7
+#define NSTATES 8
 
 void test_6pts(const params *params);
 void test_ramp(const params *params);
@@ -43,8 +43,8 @@ int main(void)
 {
   params params = { STATESIZE, PLANCK, TSTEP, HSTEP };
 
-  //  test_6pts(&params);
-  //  test_ramp(&params);
+  // test_6pts(&params);
+  // test_ramp(&params);
   evolve(&params, 40.0);
 }
 
@@ -165,7 +165,7 @@ void evolve(const params *params, double tfinal)
   gsl_vector_complex *psi = gsl_vector_complex_alloc(params->statesize);
   gsl_vector_complex *psinext = gsl_vector_complex_alloc(params->statesize);
 
-  set_hamiltonian_circular(Hprev, params, V, MASS);
+  set_hamiltonian_spinor(Hprev, params, V, MASS);
 
   gsl_vector *eval;
   gsl_matrix *evec;
@@ -185,7 +185,7 @@ void evolve(const params *params, double tfinal)
     const double t = tstep * params->tstep;
 
     potential_t(V, t);
-    set_hamiltonian_circular(H, params, V, MASS);
+    set_hamiltonian_spinor(H, params, V, MASS);
 
     if (tstep % WRITEEVERY == 0) {
       double E = get_energy(H, params, psi);

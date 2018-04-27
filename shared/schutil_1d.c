@@ -72,3 +72,35 @@ void set_hamiltonian_circular(gsl_matrix *H,
     gsl_matrix_set(H, j, j, -2.0 * pfact * hstep2 + gsl_vector_get(V, j));
   }
 }
+
+void set_hamiltonian_spinor(gsl_matrix *H, 
+			    const params *params,
+			    const gsl_vector *V,
+			    const double mass)
+{
+  const size_t npts = H->size1;
+
+  ASSERT_SQUARE(H, "set_hamiltonian: H not square");
+  ASSERT_SIZE1(H, V->size, "set_hamiltonian: dim(H) != dim(V)");
+  
+  gsl_matrix_set_all(H, 0.0);
+
+  const double pfact = -0.5 * params->planck * params->planck / mass;
+  const double hstep2 = 1.0 / (params->hstep * params->hstep);
+
+  for (int j = 0; j < npts; j++) {
+    if (j > 0) {
+      gsl_matrix_set(H, j, j-1, pfact * hstep2);
+    } else {
+      gsl_matrix_set(H, j, npts-1, (-1) * pfact * hstep2);
+    }
+    
+    if (j + 1 < npts) {
+      gsl_matrix_set(H, j, j+1, pfact * hstep2);
+    } else {
+      gsl_matrix_set(H, j, 0, (-1) * pfact * hstep2);
+    }
+
+    gsl_matrix_set(H, j, j, -2.0 * pfact * hstep2 + gsl_vector_get(V, j));
+  }
+}

@@ -11,4 +11,9 @@ void set_hamiltonian_circular(gsl_matrix *H,
 			      const gsl_vector *V,
 			      const double mass);
 
+void set_hamiltonian_spinor(gsl_matrix *H, 
+			    const params *params,
+			    const gsl_vector *V,
+			    const double mass);
+
 #endif /* defined(_SCHUTIL_1D) */

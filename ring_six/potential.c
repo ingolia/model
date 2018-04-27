@@ -50,7 +50,7 @@ void potential_test_stationary(const params *params,
   const size_t statesize = params->statesize;
   gsl_matrix *H = gsl_matrix_alloc(statesize, statesize);
 
-  set_hamiltonian_circular(H, params, V, mass);
+  set_hamiltonian_spinor(H, params, V, mass);
   
   gsl_vector *eval;
   gsl_matrix *evec;
@@ -74,7 +74,7 @@ void potential_test_stationary(const params *params,
     puts("");
     terminal_graph_raw(V, gsl_vector_min(V), gsl_vector_max(V), 16, '%');
 
-    //    sleep(1);
+    sleep(3);
   }
 
   gsl_matrix_free(H);
