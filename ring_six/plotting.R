@@ -49,5 +49,8 @@ for (psifile in psifiles) {
   pngfile <- sub(".csv$", ".png", psifile)
   png(pngfile, width=200, height=200)
   plotpsicirc(psi$V1)
+#  text(x=0, y=-1.2, labels=psifile, cex=0.5, col="white")
   dev.off()
 }
+
+# convert -delay 100 -dispose None ring_six/evolve/*.png evolve.gif

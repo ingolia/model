@@ -45,7 +45,7 @@ int main(void)
 
   //  test_6pts(&params);
   //  test_ramp(&params);
-  evolve(&params, 10.0);
+  evolve(&params, 40.0);
 }
 
 void test_6pts(const params *params)
@@ -119,10 +119,40 @@ void test_ramp(const params *params)
   fclose(fpsi);
 }
 
-#define WRITEEVERY 64
+#define WRITEEVERY 128
 
 void potential_t(gsl_vector *V, const double t) {
-  gsl_vector_set_zero(V);
+  double Vpts[6] = { 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 };
+  const double Vmax = 8.0;
+
+  if (t < 4.0) {
+    // Do nothing
+  } else if (t < 6.0) {
+    Vpts[2] = Vmax * ((t - 4.0) / (6.0 - 4.0));
+  } else if (t < 10.0) {
+    Vpts[2] = Vmax;
+  } else if (t < 12.0) {
+    Vpts[2] = Vmax * ((12.0 - t) / (12.0 - 10.0));
+  } else if (t < 15.0) { 
+    // Do nothing
+  } else if (t < 17.0) {
+    Vpts[3] = Vmax * ((t - 15.0) / (17.0 - 15.0));
+  } else if (t < 18.0) {
+    Vpts[3] = Vmax;
+  } else if (t < 20.0) {
+    Vpts[3] = Vmax * ((20.0 - t) / (20.0 - 18.0));
+  } else if (t < 27.0) {
+    // Do nothing
+  } else if (t < 28.0) {
+    Vpts[4] = Vmax * ((t - 27.0) / (28.0 - 27.0));
+  } else if (t < 29.0) {
+    Vpts[4] = Vmax * ((29.0 - t) / (29.0 - 28.0));
+    Vpts[5] = Vmax * ((t - 28.0) / (29.0 - 28.0));
+  } else if (t < 30.0) {
+    Vpts[5] = Vmax * ((30.0 - t) / (30.0 - 29.0));
+  }
+
+  potential_sin_6pt(V, Vpts);
 }
 
 void evolve(const params *params, double tfinal)
@@ -142,7 +172,7 @@ void evolve(const params *params, double tfinal)
   gsl_vector_complex *psi0;
   
   eigen_solve_alloc(Hprev, &eval, &evec);
-  eigen_norm_state_alloc(evec, params->hstep, 2, &psi0);
+  eigen_norm_state_alloc(evec, params->hstep, 0, &psi0);
 
   gsl_vector_free(eval);
   gsl_matrix_free(evec);
@@ -165,6 +195,8 @@ void evolve(const params *params, double tfinal)
       terminal_graph_abs2(psi, 24, 0.5);
       puts("");
       terminal_graph_phase(psi, 8);
+      puts("");
+      terminal_graph_raw(V, 0.0, 20.0, 10, '#');
 
       write_psi_complex("ring_six/evolve/psi-%08d.csv", psi, tstep);
     }
