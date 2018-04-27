@@ -42,7 +42,7 @@ void write_psi_complex(const char *fmt, const gsl_vector_complex *psi, int t);
 int main(void)
 {
   params params = { STATESIZE, PLANCK, TSTEP, HSTEP };
-
+  
   // test_6pts(&params);
   // test_ramp(&params);
   evolve(&params, 40.0);
@@ -123,38 +123,20 @@ void test_ramp(const params *params)
 
 void potential_t(gsl_vector *V, const double t) {
   double Vpts[6] = { 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 };
-  const double Vmax = 8.0;
+  const double Vmax = 6.0;
 
-  if (t < 4.0) {
-    // Do nothing
-  } else if (t < 6.0) {
-    Vpts[2] = Vmax * ((t - 4.0) / (6.0 - 4.0));
-  } else if (t < 10.0) {
-    Vpts[2] = Vmax;
-  } else if (t < 12.0) {
-    Vpts[2] = Vmax * ((12.0 - t) / (12.0 - 10.0));
-  } else if (t < 15.0) { 
-    // Do nothing
-  } else if (t < 17.0) {
-    Vpts[3] = Vmax * ((t - 15.0) / (17.0 - 15.0));
-  } else if (t < 18.0) {
-    Vpts[3] = Vmax;
-  } else if (t < 20.0) {
-    Vpts[3] = Vmax * ((20.0 - t) / (20.0 - 18.0));
-  } else if (t < 27.0) {
-    // Do nothing
-  } else if (t < 28.0) {
-    Vpts[4] = Vmax * ((t - 27.0) / (28.0 - 27.0));
-  } else if (t < 29.0) {
-    Vpts[4] = Vmax * ((29.0 - t) / (29.0 - 28.0));
-    Vpts[5] = Vmax * ((t - 28.0) / (29.0 - 28.0));
-  } else if (t < 30.0) {
-    Vpts[5] = Vmax * ((30.0 - t) / (30.0 - 29.0));
+  Vpts[2] = Vmax * potential_asdr( 4.0,  6.0, 10.0, 12.0, t);
+  Vpts[3] = Vmax * potential_asdr(15.0, 17.0, 18.0, 20.0, t);
+  if (0) {
+    Vpts[4] = Vmax * potential_asdr(27.0, 28.0, 28.0, 29.0, t);
+    Vpts[5] = Vmax * potential_asdr(28.0, 29.0, 29.0, 30.0, t);
+    Vpts[0] = Vmax * potential_asdr(29.0, 30.0, 30.0, 31.0, t);
+    Vpts[1] = Vmax * potential_asdr(30.0, 31.0, 31.0, 32.0, t);
   }
 
   potential_sin_6pt(V, Vpts);
 }
-
+ 
 void evolve(const params *params, double tfinal)
 {
   gsl_vector *V = gsl_vector_calloc(params->statesize);
@@ -169,15 +151,23 @@ void evolve(const params *params, double tfinal)
 
   gsl_vector *eval;
   gsl_matrix *evec;
-  gsl_vector_complex *psi0;
+  gsl_vector_complex *psi_0, *psi_1;
   
   eigen_solve_alloc(Hprev, &eval, &evec);
-  eigen_norm_state_alloc(evec, params->hstep, 0, &psi0);
+  eigen_norm_state_alloc(evec, params->hstep, 0, &psi_0);
+  eigen_norm_state_alloc(evec, params->hstep, 1, &psi_1);
 
   gsl_vector_free(eval);
   gsl_matrix_free(evec);
 
-  gsl_vector_complex_memcpy(psi, psi0);
+  gsl_vector_complex_scale(psi_0, gsl_complex_rect(M_SQRT1_2, 0.0));
+  gsl_vector_complex_memcpy(psi, psi_0);
+  
+  gsl_vector_complex_scale(psi_1, gsl_complex_rect(0.0, M_SQRT1_2));
+  gsl_vector_complex_add(psi, psi_1);
+
+  gsl_vector_complex_free(psi_0);
+  gsl_vector_complex_free(psi_1);
 
   timeevol *U = timeevol_alloc(params);
   

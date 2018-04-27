@@ -40,6 +40,21 @@ void potential_sin_6pt(gsl_vector *V, double Vpts[6])
   }
 }
 
+double potential_asdr(const double ta, const double ts, 
+		      const double td, const double tr, 
+		      const double t)
+{
+  if ((t < ta) || (t > tr)) {
+    return 0.0;
+  } else if (t < ts) {
+    return (t - ta) / (ts - ta);
+  } else if (t < td) {
+    return 1.0;
+  } else {
+    return (tr - t) / (tr - td);
+  }
+}
+
 void potential_test_stationary(const params *params,
 			       const gsl_vector *V,
 			       const double mass,

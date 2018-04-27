@@ -53,4 +53,4 @@ for (psifile in psifiles) {
   dev.off()
 }
 
-# convert -delay 100 -dispose None ring_six/evolve/*.png evolve.gif
+# convert -delay 3 -dispose None ring_six/evolve/*.png evolve.gif
