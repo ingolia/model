@@ -43,7 +43,7 @@ int main(void)
 {
   params params = { STATESIZE, PLANCK, TSTEP, HSTEP };
   
-  // test_6pts(&params);
+  test_6pts(&params);
   // test_ramp(&params);
   evolve(&params, 40.0);
 }
