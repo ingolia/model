@@ -7,6 +7,12 @@ double potential_asdr(const double ta, const double ts,
 		      const double td, const double tr, 
 		      const double t);
 
+double potential_cyclic(const double tcycle, unsigned int nphases, unsigned int phase, const double t);
+
+void potential_control(const params *params,
+		       const gsl_vector *V,
+		       const double mass);
+
 void potential_test_stationary(const params *params,
 			       const gsl_vector *V,
 			       const double mass,

@@ -40,6 +40,24 @@ void potential_sin_6pt(gsl_vector *V, double Vpts[6])
   }
 }
 
+double potential_cyclic(const double tcycle, 
+			unsigned int nphases, 
+			unsigned int phase, 
+			const double t)
+{
+  const double tincycle = t - tcycle * ((int) (t / tcycle));
+  assert(tincycle >= 0.0 && tincycle <= tcycle);
+  const double tphase = tincycle * ((double) nphases) / tcycle;
+  assert(tphase >= 0.0 && tphase <= ((double) nphases));
+  const double relphase = tphase - (double) phase;
+
+  if ((relphase < 0.0) || (relphase > 2.0)) {
+    return 0.0;
+  } else {
+    return sin(relphase * M_PI / 2.0);
+  }
+}
+
 double potential_asdr(const double ta, const double ts, 
 		      const double td, const double tr, 
 		      const double t)
@@ -54,6 +72,65 @@ double potential_asdr(const double ta, const double ts,
     return (tr - t) / (tr - td);
   }
 }
+void potential_control(const params *params,
+		       const gsl_vector *V,
+		       const double mass)
+{
+  const size_t statesize = params->statesize;
+  gsl_matrix *H = gsl_matrix_alloc(statesize, statesize);
+
+  set_hamiltonian_circular(H, params, V, mass);
+  
+  gsl_vector *eval_V;
+  gsl_matrix *evec_V;
+
+  eigen_solve_alloc(H, &eval_V, &evec_V);
+
+  gsl_vector *V0 = gsl_vector_calloc(statesize);
+
+  set_hamiltonian_circular(H, params, V0, mass);
+
+  gsl_vector *eval_0;
+  gsl_matrix *evec_0;
+
+  eigen_solve_alloc(H, &eval_0, &evec_0);
+
+  FILE *f = fopenf("w", "ring_six/control-V.txt");
+
+  for (int i = 0; i < statesize; i++) {
+    gsl_vector_view evec_Vi = gsl_matrix_column(evec_V, i);
+
+    fprintf(f, "%d\t%0.2f", i, gsl_vector_get(eval_V, i));
+    for (int j = 0; j < 5; j++) {
+      gsl_vector_view evec_0j = gsl_matrix_column(evec_0, j);
+
+      double x;
+      gsl_blas_ddot(&evec_Vi.vector, &evec_0j.vector, &x);
+      fprintf(f, "\t%+0.3f", x);
+    }
+    fprintf(f, "\n");
+  }
+
+  fclose(f);
+
+  f = fopenf("w", "ring_six/control-0.txt");
+
+  for (int i = 0; i < statesize; i++) {
+    gsl_vector_view evec_0i = gsl_matrix_column(evec_0, i);
+
+    fprintf(f, "%d\t%0.2f", i, gsl_vector_get(eval_0, i));
+    for (int j = 0; j < 5; j++) {
+      gsl_vector_view evec_Vj = gsl_matrix_column(evec_V, j);
+
+      double x;
+      gsl_blas_ddot(&evec_0i.vector, &evec_Vj.vector, &x);
+      fprintf(f, "\t%+0.3f", x);
+    }
+    fprintf(f, "\n");
+  }
+
+  fclose(f);
+}
 
 void potential_test_stationary(const params *params,
 			       const gsl_vector *V,
@@ -65,7 +142,7 @@ void potential_test_stationary(const params *params,
   const size_t statesize = params->statesize;
   gsl_matrix *H = gsl_matrix_alloc(statesize, statesize);
 
-  set_hamiltonian_spinor(H, params, V, mass);
+  set_hamiltonian_circular(H, params, V, mass);
   
   gsl_vector *eval;
   gsl_matrix *evec;

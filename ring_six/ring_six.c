@@ -43,9 +43,15 @@ int main(void)
 {
   params params = { STATESIZE, PLANCK, TSTEP, HSTEP };
   
-  test_6pts(&params);
+  //  test_6pts(&params);
   // test_ramp(&params);
-  evolve(&params, 40.0);
+
+  gsl_vector *V = gsl_vector_calloc(params.statesize);
+  double Vpts[6] = { 2.0, 0.0, 0.0, 0.0, 0.0, 0.0 };
+  potential_sin_6pt(V, Vpts);
+  potential_control(&params, V, 1.0);
+
+  //  evolve(&params, 40.0);
 }
 
 void test_6pts(const params *params)
@@ -121,7 +127,7 @@ void test_ramp(const params *params)
 
 #define WRITEEVERY 128
 
-void potential_t(gsl_vector *V, const double t) {
+void old_potential_t(gsl_vector *V, const double t) {
   double Vpts[6] = { 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 };
   const double Vmax = 6.0;
 
@@ -132,6 +138,20 @@ void potential_t(gsl_vector *V, const double t) {
     Vpts[5] = Vmax * potential_asdr(28.0, 29.0, 29.0, 30.0, t);
     Vpts[0] = Vmax * potential_asdr(29.0, 30.0, 30.0, 31.0, t);
     Vpts[1] = Vmax * potential_asdr(30.0, 31.0, 31.0, 32.0, t);
+  }
+
+  potential_sin_6pt(V, Vpts);
+}
+
+void potential_t(gsl_vector *V, const double t) {
+  double Vpts[6] = { 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 };
+  const double Vmax = 4.0;
+  const double tcycle = 2.0 * M_PI;
+
+  for (int i = 0; i < 6; i++) {
+    Vpts[i] = Vmax * (potential_cyclic(tcycle, 6, i%6, t)
+		      + potential_cyclic(tcycle, 6, (i+3)%6, t))
+      * potential_asdr(tcycle, tcycle*2.0, tcycle*2.0, tcycle*3.0, t);
   }
 
   potential_sin_6pt(V, Vpts);
@@ -147,7 +167,7 @@ void evolve(const params *params, double tfinal)
   gsl_vector_complex *psi = gsl_vector_complex_alloc(params->statesize);
   gsl_vector_complex *psinext = gsl_vector_complex_alloc(params->statesize);
 
-  set_hamiltonian_spinor(Hprev, params, V, MASS);
+  set_hamiltonian_circular(Hprev, params, V, MASS);
 
   gsl_vector *eval;
   gsl_matrix *evec;
@@ -160,10 +180,12 @@ void evolve(const params *params, double tfinal)
   gsl_vector_free(eval);
   gsl_matrix_free(evec);
 
-  gsl_vector_complex_scale(psi_0, gsl_complex_rect(M_SQRT1_2, 0.0));
+  //  gsl_vector_complex_scale(psi_0, gsl_complex_rect(M_SQRT1_2, 0.0));
+  gsl_vector_complex_scale(psi_0, gsl_complex_rect(1.0, 0.0));
   gsl_vector_complex_memcpy(psi, psi_0);
   
-  gsl_vector_complex_scale(psi_1, gsl_complex_rect(0.0, M_SQRT1_2));
+  // gsl_vector_complex_scale(psi_1, gsl_complex_rect(0.0, M_SQRT1_2));
+  gsl_vector_complex_scale(psi_1, gsl_complex_rect(0.0, 0.0));
   gsl_vector_complex_add(psi, psi_1);
 
   gsl_vector_complex_free(psi_0);
@@ -175,7 +197,7 @@ void evolve(const params *params, double tfinal)
     const double t = tstep * params->tstep;
 
     potential_t(V, t);
-    set_hamiltonian_spinor(H, params, V, MASS);
+    set_hamiltonian_circular(H, params, V, MASS);
 
     if (tstep % WRITEEVERY == 0) {
       double E = get_energy(H, params, psi);
