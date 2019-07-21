@@ -1,0 +1,17 @@
+[package]
+name = "wave"
+version = "0.1.0"
+authors = ["Nicholas Ingolia <nick@ingolia.org>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+blas = "*"
+lapack = "*"
+num-complex = "0.2.3"
+num-traits = "*"
+ndarray = { version = "0.12.1", features = ["blas"] }
+# openblas-src = "*"
+# netlib-src = "*"
+accelerate-src = "*"
