@@ -2,7 +2,7 @@ use std::fmt::{Display,Formatter};
 use std::marker::PhantomData;
 use std::ops::{Index, IndexMut};
 
-use blas::{ddot, dgemv, dnrm2, dznrm2, dscal, zdotu, zgemv, zscal};
+use blas::{ddot, dgemm, dgemv, dnrm2, dznrm2, dscal, zdotu, zgemm, zgemv, zscal};
 use lapack::dsyev;
 use num_complex::*;
 use num_traits::identities::*;
@@ -34,6 +34,7 @@ pub trait Blastype
     fn xdot(x: &[Self], y: &[Self]) -> Self;
 
     fn xgemv_simple(a: &[Self], x: &[Self]) -> Vec<Self>;
+    fn xgemm_simple(n: usize, a: &[Self], b: &[Self]) -> Vec<Self>;
 }
 
 impl Blastype for f64 {
@@ -68,6 +69,17 @@ impl Blastype for f64 {
             dgemv(b'N', n as i32, n as i32, 1.0, a, n as i32, x, 1, 0.0, &mut y, 1);
         }
         y
+    }
+
+    fn xgemm_simple(n: usize, a: &[Self], b: &[Self]) -> Vec<Self> {
+        if a.len() != n * n || b.len() != n * n {
+            panic!("f64 matrix-vector mismatch {} vs {}", a.len(), b.len());
+        }
+        let mut c = vec![0.0; n * n];
+        unsafe {
+            dgemm(b'N', b'N', n as i32, n as i32, n as i32, 1.0, a, n as i32, b, n as i32, 0.0, &mut c, n as i32);
+        }
+        c
     }
 }
 
@@ -106,21 +118,35 @@ impl Blastype for Complex64 {
         }
         y
     }
+
+    fn xgemm_simple(n: usize, a: &[Self], b: &[Self]) -> Vec<Self> {
+        if a.len() != n * n || b.len() != n * n {
+            panic!("c64 matrix-vector mismatch {} vs {}", a.len(), b.len());
+        }
+        let mut c = vec![zero(); n * n];
+        unsafe {
+            zgemm(b'N', b'N', n as i32, n as i32, n as i32, one(), a, n as i32, b, n as i32, zero(), &mut c, n as i32);
+        }
+        c
+    }
 }
 
 pub trait VType {}
 
+#[derive(Debug,Clone,Copy,Hash,PartialEq,Eq)]
 pub struct Row {}
 impl VType for Row {}
+#[derive(Debug,Clone,Copy,Hash,PartialEq,Eq)]
 pub struct Col {}
 impl VType for Col {}
 
+#[derive(Debug,Clone,Hash,PartialEq,Eq)]
 pub struct NVector<E, T> {
     data: Vec<E>,
     phantom: PhantomData<T>,
 }
 
-impl<E, T: VType> NVector<E, T> {
+impl<E, T> NVector<E, T> {
     pub fn len(&self) -> usize {
         self.data.len()
     }
@@ -214,6 +240,8 @@ pub struct MatrixSquare<E> {
 }
 
 impl<E> MatrixSquare<E> {
+    pub fn n(&self) -> usize { self.n }
+
     fn data_index(&self, row_col: (usize, usize)) -> usize {
         let (row, col) = row_col;
         if row >= self.n || col >= self.n {
@@ -222,11 +250,35 @@ impl<E> MatrixSquare<E> {
                 row, col, self.n, self.n
             );
         }
-        row * self.n + col
+        row + col * self.n
     }
 }
 
 impl <E: Copy> MatrixSquare<E> {
+    pub fn rows(&self) -> Vec<NVector<E, Row>> {
+        let mut rows = Vec::with_capacity(self.n);
+        for i in 0..self.n {
+            let mut row = Vec::with_capacity(self.n);
+            for j in 0..self.n {
+                row.push(self[(i, j)]);
+            }
+            rows.push(NVector::row_from_vec(row));
+        }
+        rows
+    }
+
+    pub fn cols(&self) -> Vec<NVector<E, Col>> {
+        let mut cols = Vec::with_capacity(self.n);
+        for j in 0..self.n {
+            let mut col = Vec::with_capacity(self.n);
+            for i in 0..self.n {
+                col.push(self[(i, j)]);
+            }
+            cols.push(NVector::col_from_vec(col));
+        }
+        cols
+    }
+
     pub fn from_rows(rows: &[NVector<E, Row>]) -> Self {
         let n = rows.len();
         let mut data = Vec::with_capacity(n*n);
@@ -244,8 +296,18 @@ impl <E: Copy> MatrixSquare<E> {
     }
 }
 
+impl <E: Blastype> MatrixSquare<E> {
+    pub fn mmulv(&self, v: &NVector<E, Col>) -> NVector<E, Col> {
+        NVector::col_from_vec(Blastype::xgemv_simple(&self.data, &v.data))
+    }
+
+    pub fn mmulm(&self, b: &MatrixSquare<E>) -> MatrixSquare<E> {
+        MatrixSquare { n: self.n, data: Blastype::xgemm_simple(self.n, &self.data, &b.data) }
+    }
+}
+
 impl MatrixSquare<f64> {
-    pub fn dsyev(&self) -> (Vec<f64>, Vec<NVector<f64, Row>>) {
+    pub fn dsyev(&self) -> (Vec<f64>, MatrixSquare<f64>) {
         let mut m = self.data.clone();
         let mut eigvals = vec![0.0; self.n];
         let mut work_len = vec![0.0];
@@ -277,16 +339,8 @@ impl MatrixSquare<f64> {
             panic!("dsyev: Convergence failure {}", info);
         }
 
-        let mut eigvecs = Vec::with_capacity(self.n);
-        for i in 0..self.n {
-            let mut eigvec = Vec::with_capacity(self.n);
-            for j in 0..self.n {
-                eigvec.push(m[self.data_index((i, j))]);
-            }
-            eigvecs.push(NVector::row_from_vec(eigvec));
-        }
 
-        (eigvals, eigvecs)
+        (eigvals, MatrixSquare{ n: self.n, data: m })
     }
 }
 
@@ -340,7 +394,7 @@ impl<E: Conjugate> Conjugate for MatrixSquare<E> {
         let mut data = Vec::with_capacity(self.n * self.n);
         for j in 0..self.n {
             for i in 0..self.n {
-                data.push(self[(i, j)].dagger());
+                data.push(self[(j, i)].dagger());
             }
         }
         MatrixSquare {
@@ -374,3 +428,53 @@ impl <E: Display> Display for MatrixSquare<E> {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn matrix_basics() {
+        let row0 = NVector::row_from_vec(vec![1.0, 2.0, 3.0]);
+        let row1 = NVector::row_from_vec(vec![4.0, 5.0, 6.0]);
+        let row2 = NVector::row_from_vec(vec![7.0, 8.0, 9.0]);
+
+        let rows_in = vec![row0, row1, row2];
+
+        let m = MatrixSquare::from_rows(&rows_in);
+
+        assert_eq!(m.rows(), rows_in);
+
+        for rowno in 0..3 {
+            for colno in 0..3 {
+                assert_eq!(m[(rowno, colno)], rows_in[rowno][colno]);
+            }
+        }
+
+        let cols_out: Vec<NVector<f64,Row>> = m.dagger().cols().iter().map(Conjugate::dagger).collect();
+        assert_eq!(cols_out, rows_in);
+    }
+
+    #[test]
+    fn matrix_mult() {
+        let row0 = NVector::row_from_vec(vec![1.0, 2.0]);
+        let row1 = NVector::row_from_vec(vec![3.0, 4.0]);
+        let m = MatrixSquare::from_rows(&vec![row0, row1]);
+
+        let v = NVector::col_from_vec(vec![5.0, 6.0]);
+
+        let w = m.mmulv(&v);
+        assert_eq!(w[0], 1.0 * 5.0 + 2.0 * 6.0);
+        assert_eq!(w[1], 3.0 * 5.0 + 4.0 * 6.0);
+
+        let row0a = NVector::row_from_vec(vec![7.0, 8.0]);
+        let row1a = NVector::row_from_vec(vec![9.0, 1.0]);
+        let n = MatrixSquare::from_rows(&vec![row0a, row1a]);
+
+        let p = m.mmulm(&n);
+
+        assert_eq!(p[(0, 0)], 7.0 * 1.0 + 9.0 * 2.0);
+        assert_eq!(p[(1, 0)], 3.0 * 7.0 + 4.0 * 9.0);
+        assert_eq!(p[(0, 1)], 1.0 * 8.0 + 2.0 * 1.0);
+        assert_eq!(p[(1, 1)], 3.0 * 8.0 + 4.0 * 1.0);
+    }
+}
