@@ -2,6 +2,7 @@ use std::fmt::{Display,Formatter};
 use std::marker::PhantomData;
 use std::ops::{Index, IndexMut};
 
+use blas::{ddot, dgemv, dnrm2, dznrm2, dscal, zdotu, zgemv, zscal};
 use lapack::dsyev;
 use num_complex::*;
 use num_traits::identities::*;
@@ -22,6 +23,88 @@ impl Conjugate for Complex<f64> {
     type Output = Complex<f64>;
     fn dagger(&self) -> Self::Output {
         self.conj()
+    }
+}
+
+pub trait Blastype
+    where Self: std::marker::Sized {
+
+    fn xnrm2(x: &[Self]) -> f64;
+    fn xscal(x: &mut [Self], a: Self) -> ();
+    fn xdot(x: &[Self], y: &[Self]) -> Self;
+
+    fn xgemv_simple(a: &[Self], x: &[Self]) -> Vec<Self>;
+}
+
+impl Blastype for f64 {
+    fn xnrm2(x: &[Self]) -> f64 {
+        unsafe {
+            dnrm2(x.len() as i32, x, 1)
+        }
+    }
+
+    fn xscal(x: &mut [Self], a: Self) -> () {
+        unsafe {
+            dscal(x.len() as i32, a, x, 1);
+        }
+    }
+
+    fn xdot(x: &[Self], y: &[Self]) -> Self {
+        if x.len() != y.len() {
+            panic!("f64 dot product length {} != {}", x.len(), y.len());
+        }
+        unsafe {
+            ddot(x.len() as i32, x, 1, y, 1)
+        }
+    }
+
+    fn xgemv_simple(a: &[Self], x: &[Self]) -> Vec<Self> {
+        let n = x.len();
+        if a.len() != n * n {
+            panic!("f64 matrix-vector mismatch {} vs {}", x.len(), a.len());
+        }
+        let mut y = vec![0.0; n];
+        unsafe {
+            dgemv(b'N', n as i32, n as i32, 1.0, a, n as i32, x, 1, 0.0, &mut y, 1);
+        }
+        y
+    }
+}
+
+impl Blastype for Complex64 {
+    fn xnrm2(x: &[Self]) -> f64 {
+        unsafe {
+            dznrm2(x.len() as i32, x, 1)
+        }
+    }
+
+    fn xscal(x: &mut [Self], a: Self) -> () {
+        unsafe {
+            zscal(x.len() as i32, a, x, 1);
+        }
+    }
+
+    fn xdot(x: &[Self], y: &[Self]) -> Self {
+        if x.len() != y.len() {
+            panic!("Complex64 dot product length {} != {}", x.len(), y.len());
+        }
+        let mut pres: [Complex64; 1] = [Complex64::zero()];
+        unsafe {
+            zdotu(&mut pres, x.len() as i32, x, 1, y, 1);
+        }
+        pres[0]
+    }
+
+    fn xgemv_simple(a: &[Self], x: &[Self]) -> Vec<Self> {
+        let n = x.len();
+        if a.len() != n * n {
+            panic!("c64 matrix-vector mismatch {} vs {}", x.len(), a.len());
+        }
+        let mut y = vec![zero(); n];
+        unsafe {
+            zgemv(b'N', n as i32, n as i32, one(), a, n as i32, x, 1, zero(), &mut y, 1);
+        }
+        y
     }
 }
 
@@ -58,6 +141,26 @@ impl<E> NVector<E, Col> {
             data: data,
             phantom: PhantomData,
         }
+    }
+}
+
+impl <E: Blastype, T> NVector<E, T> {
+    pub fn norm2(&self) -> f64 {
+        Blastype::xnrm2(&self.data)
+    }
+
+    pub fn scale(&mut self, a: E) -> () {
+        Blastype::xscal(&mut self.data, a);
+    }
+
+    pub fn dot(&self, y: &NVector<E, Col>) -> E {
+        Blastype::xdot(&self.data, &y.data)
+    }
+}
+
+impl <T> From<NVector<f64, T>> for NVector<Complex64, T> {
+    fn from(v: NVector<f64, T>) -> Self {
+        NVector { data: v.data.iter().map(Complex64::from).collect(), phantom: PhantomData }
     }
 }
 
@@ -208,6 +311,13 @@ impl<E: Zero + One + Clone> MatrixSquare<E> {
     }
 }
 
+impl From<MatrixSquare<f64>> for MatrixSquare<Complex64> {
+    fn from(v: MatrixSquare<f64>) -> Self {
+        MatrixSquare { n: v.n, data: v.data.iter().map(Complex64::from).collect() }
+    }
+    
+}
+
 impl<E> Index<(usize, usize)> for MatrixSquare<E> {
     type Output = E;
 
@@ -242,8 +352,6 @@ impl<E: Conjugate> Conjugate for MatrixSquare<E> {
 
 impl <E: Display> Display for MatrixSquare<E> {
     fn fmt(&self, f: &mut Formatter) -> Result<(), std::fmt::Error> {
-        let mut iter = self.data.iter();
-
         for i in 0..self.n {
             if i == 0 { write!(f, "[")?; } else { write!(f, " ")?; }
             
