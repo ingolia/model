@@ -7,6 +7,7 @@ use lapack::*;
 use num_complex::*;
 
 mod linalg;
+mod sch;
 
 use linalg::*;
 
@@ -69,5 +70,37 @@ fn main() {
 
     for eigvec in eigvecs {
         println!("{:7.4}", eigvec);
+    }
+
+    let n = 12;
+    let model = sch::ModelS1::new(sch::H_DEFAULT, sch::MASS_DEFAULT, sch::LENGTH_DEFAULT);
+    let m = model.hamiltonian_spinor(n);
+    println!("{:6.3}", m);
+
+    let (eigvals, eigvecs) = m.dsyev();
+
+    println!("{:.4}", NVector::row_from_vec(eigvals));
+
+    for eigvec in eigvecs.iter() {
+        println!("{:6.3}", eigvec);
+    }
+
+    let mut v = NVector::col_from_vec(vec![1.0; n]);
+    v.scale(v.norm2().recip());
+    println!("{:6.3}", v.dagger());
+
+    for eigvec in eigvecs.iter() {
+        println!("{:6.3}", eigvec.dot(&v));
+    }
+
+    for i in 0..n {
+        let x = 1.0 * std::f64::consts::PI * (i as f64) / (n as f64);
+        v[i] = x.sin();
+    }
+    v.scale(v.norm2().recip());
+    println!("{:6.3}", v.dagger());
+
+    for eigvec in eigvecs.iter() {
+        println!("{:6.3}", eigvec.dot(&v));
     }
 }
