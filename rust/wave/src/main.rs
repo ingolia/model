@@ -36,12 +36,12 @@ fn main() {
     let egap = ssb[2].0 - ssb[0].0;
     let time = 0.5 * std::f64::consts::PI / egap;
     println!("egap = {:0.3}, time = {:0.3}", egap, time);
-    let tegap = sch::make_time_evol(&m, time);
+    let tegap = sch::make_time_evol(&mb, time);
     let mut psi: NVector<Complex64,Col> = ssa[0].1.clone().into();
-    println!("{:?}", psi.dagger());
+    println!("{:0.4}", psi.dagger());
     psi = tegap.mmulv(&psi);
-    println!("{:?}", psi.dagger());
-    
+    println!("{:0.4}", psi.dagger());
+
     let timeevol = sch::make_time_evol(&m, tstep / sch::PLANCK_DEFAULT);
 
     let mut times = Vec::new();
