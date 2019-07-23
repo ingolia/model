@@ -1,3 +1,6 @@
+use std::io::Write;
+use std::path::Path;
+
 use num_complex::*;
 
 use crate::linalg::*;
@@ -46,6 +49,42 @@ impl ModelS1 {
     }    
 }
 
+pub fn stationary_states(hamil: &MatrixSquare<f64>) -> Vec<(f64,NVector<f64,Col>)> {
+    let (eigvals, eigvecs) = hamil.dsyev();
+    eigvals.into_iter().zip(eigvecs.cols().into_iter()).collect()
+}
+
+pub fn write_stationary<P: AsRef<Path>, Q: AsRef<Path>>(vec_file: P, e_file: Q, hamil: &MatrixSquare<f64>) -> std::io::Result<()> {
+    let mut vec_out = std::fs::File::create(vec_file)?;
+    let mut e_out = std::fs::File::create(e_file)?;
+
+    let ss = stationary_states(hamil);
+
+    write!(vec_out, "n")?;
+    write!(e_out, "n")?;
+    for j in 0..ss.len() {
+        write!(vec_out, ",n{:03}", j)?;
+        write!(e_out, ",n{:03}", j)?;
+    }
+    write!(vec_out, "\n")?;
+    write!(e_out, "\n")?;
+
+    write!(e_out, "E")?;
+    for j in 0..ss.len() {
+        write!(e_out, ",{:0.4}", ss[j].0)?;
+    }
+    write!(e_out, "\n")?;
+
+    for i in 0..ss.len() {
+        write!(vec_out, "x{:03}", i)?;
+        for j in 0..ss.len() {
+            write!(vec_out, ",{:0.4}", ss[j].1[i])?;
+        }
+        write!(vec_out, "\n")?;
+    }
+    Ok(())
+}
+    
 pub fn make_time_evol(hamil: &MatrixSquare<f64>, tstep_over_planck: f64) -> MatrixSquare<Complex64> {
     // println!("H =\n{:6.3}", hamil);
 
