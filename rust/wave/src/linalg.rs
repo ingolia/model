@@ -190,7 +190,7 @@ impl <T> From<NVector<f64, T>> for NVector<Complex64, T> {
     }
 }
 
-impl Display for NVector<f64, Row> {
+impl <T: Display> Display for NVector<T, Row> {
     fn fmt(&self, f: &mut Formatter) -> Result<(), std::fmt::Error> {
         let mut iter = self.data.iter();
 
