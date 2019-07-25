@@ -1,6 +1,8 @@
+#![recursion_limit="128"]
+use std::borrow::Borrow;
 use std::fmt::{Display,Formatter};
 use std::marker::PhantomData;
-use std::ops::{Index, IndexMut};
+use std::ops::{Add, Index, IndexMut, Mul, Sub};
 
 use blas::{ddot, dgemm, dgemv, dnrm2, dznrm2, dscal, zdotu, zgemm, zgemv, zscal};
 use lapack::dsyev;
@@ -150,6 +152,10 @@ impl<E, T> NVector<E, T> {
     pub fn len(&self) -> usize {
         self.data.len()
     }
+
+    pub fn elts(&self) -> &[E] {
+        self.data.as_slice()
+    }
 }
 
 impl<E> NVector<E, Row> {
@@ -203,6 +209,200 @@ impl <T: Display> Display for NVector<T, Row> {
             x.fmt(f)?;
         }
         write!(f, "]")
+    }
+}
+
+impl <'a, 'b, E, F, G, T> Add<&'b NVector<F, T>> for &'a NVector<E, T>
+    where &'a E: Add<&'b F, Output = G>
+{
+    type Output = NVector<G, T>;
+
+    fn add(self, rhs: &'b NVector<F, T>) -> Self::Output {
+        if self.data.len() != rhs.data.len() {
+            panic!("NVector::add lenght mismatch {} vs {}", self.data.len(), rhs.data.len());
+        }
+
+        let sum_data = self.data.iter().zip(rhs.data.iter()).map(|(x, y)| x + y).collect();
+
+        NVector { data: sum_data, phantom: PhantomData }
+    }
+}
+
+impl <'a, E, F, G, T> Add<NVector<F, T>> for &'a NVector<E, T>
+    where &'a E: Add<F, Output = G>
+{
+    type Output = NVector<G, T>;
+
+    fn add(self, rhs: NVector<F, T>) -> Self::Output {
+        if self.data.len() != rhs.data.len() {
+            panic!("NVector::add lenght mismatch {} vs {}", self.data.len(), rhs.data.len());
+        }
+
+        let sum_data = self.data.iter().zip(rhs.data.into_iter()).map(|(x, y)| x + y).collect();
+
+        NVector { data: sum_data, phantom: PhantomData }
+    }
+}
+
+impl <'b, E, F, G, T> Add<&'b NVector<F, T>> for NVector<E, T>
+    where E: Add<&'b F, Output = G>
+{
+    type Output = NVector<G, T>;
+
+    fn add(self, rhs: &'b NVector<F, T>) -> Self::Output {
+        if self.data.len() != rhs.data.len() {
+            panic!("NVector::add lenght mismatch {} vs {}", self.data.len(), rhs.data.len());
+        }
+
+        let sum_data = self.data.into_iter().zip(rhs.data.iter()).map(|(x, y)| x + y).collect();
+
+        NVector { data: sum_data, phantom: PhantomData }
+    }
+}
+
+impl <E, T> Add<NVector<E, T>> for NVector<E, T>
+    where E: Add<E, Output = E>
+{
+    type Output = NVector<E, T>;
+
+    fn add(self, rhs: NVector<E, T>) -> Self::Output {
+        if self.data.len() != rhs.data.len() {
+            panic!("NVector::add lenght mismatch {} vs {}", self.data.len(), rhs.data.len());
+        }
+
+        let sum_data: Vec<E> = self.data.into_iter().zip(rhs.data.into_iter()).map(|(x,y)| x+y).collect();
+        
+        NVector { data: sum_data, phantom: PhantomData }
+    }
+}
+
+impl <'a, 'b, E, F, G, T> Sub<&'b NVector<F, T>> for &'a NVector<E, T>
+    where &'a E: Sub<&'b F, Output = G>
+{
+    type Output = NVector<G, T>;
+
+    fn sub(self, rhs: &'b NVector<F, T>) -> Self::Output {
+        if self.data.len() != rhs.data.len() {
+            panic!("NVector::sub lenght mismatch {} vs {}", self.data.len(), rhs.data.len());
+        }
+
+        let sum_data = self.data.iter().zip(rhs.data.iter()).map(|(x, y)| x - y).collect();
+
+        NVector { data: sum_data, phantom: PhantomData }
+    }
+}
+
+impl <'a, E, F, G, T> Sub<NVector<F, T>> for &'a NVector<E, T>
+    where &'a E: Sub<F, Output = G>
+{
+    type Output = NVector<G, T>;
+
+    fn sub(self, rhs: NVector<F, T>) -> Self::Output {
+        if self.data.len() != rhs.data.len() {
+            panic!("NVector::sub lenght mismatch {} vs {}", self.data.len(), rhs.data.len());
+        }
+
+        let sum_data = self.data.iter().zip(rhs.data.into_iter()).map(|(x, y)| x - y).collect();
+
+        NVector { data: sum_data, phantom: PhantomData }
+    }
+}
+
+impl <'b, E, F, G, T> Sub<&'b NVector<F, T>> for NVector<E, T>
+    where E: Sub<&'b F, Output = G>
+{
+    type Output = NVector<G, T>;
+
+    fn sub(self, rhs: &'b NVector<F, T>) -> Self::Output {
+        if self.data.len() != rhs.data.len() {
+            panic!("NVector::sub lenght mismatch {} vs {}", self.data.len(), rhs.data.len());
+        }
+
+        let sum_data = self.data.into_iter().zip(rhs.data.iter()).map(|(x, y)| x - y).collect();
+
+        NVector { data: sum_data, phantom: PhantomData }
+    }
+}
+
+impl <E, T> Sub<NVector<E, T>> for NVector<E, T>
+    where E: Sub<E, Output = E>
+{
+    type Output = NVector<E, T>;
+
+    fn sub(self, rhs: NVector<E, T>) -> Self::Output {
+        if self.data.len() != rhs.data.len() {
+            panic!("NVector::sub lenght mismatch {} vs {}", self.data.len(), rhs.data.len());
+        }
+
+        let sum_data: Vec<E> = self.data.into_iter().zip(rhs.data.into_iter()).map(|(x,y)| x - y).collect();
+        
+        NVector { data: sum_data, phantom: PhantomData }
+    }
+}
+
+impl <'a, E, F: Copy, G, T> Mul<F> for &'a NVector<E, T>
+where &'a E: Mul<F, Output = G>
+{
+    type Output = NVector<G, T>;
+
+    fn mul(self, rhs: F) -> Self::Output {
+        let mut pdt_data = Vec::with_capacity(self.data.len());
+        for i in 0..self.data.len() {
+            pdt_data.push(&self.data[i] * rhs);
+        }
+
+        NVector { data: pdt_data, phantom: PhantomData }
+    }
+}
+
+impl <E, F: Copy, G, T> Mul<F> for NVector<E, T>
+where E: Mul<F, Output = G>
+{
+    type Output = NVector<G, T>;
+
+    fn mul(self, rhs: F) -> Self::Output {
+        let pdt_data = self.data.into_iter().map(|x| x * rhs).collect();
+        NVector { data: pdt_data, phantom: PhantomData }
+    }
+}
+
+impl <'a, E, F, T> Mul<&'a NVector<E, T>> for f64
+  where E: Mul<f64, Output = F> + Copy
+{
+    type Output = NVector<F, T>;
+
+    fn mul(self, rhs: &'a NVector<E, T>) -> Self::Output {
+        NVector { data: rhs.data.iter().map(|x| *x * self).collect(), phantom: PhantomData }
+    }
+}
+
+impl <E, F, T> Mul<NVector<E, T>> for f64
+  where E: Mul<f64, Output = F> + Copy
+{
+    type Output = NVector<F, T>;
+
+    fn mul(self, rhs: NVector<E, T>) -> Self::Output {
+        NVector { data: rhs.data.iter().map(|x| *x * self).collect(), phantom: PhantomData }
+    }
+}
+
+impl <'a, E, F, T> Mul<&'a NVector<E, T>> for Complex64
+where E: Mul<Complex64, Output = F> + Copy
+{
+    type Output = NVector<F, T>;
+
+    fn mul(self, rhs: &'a NVector<E, T>) -> Self::Output {
+        NVector { data: rhs.data.iter().map(|x| *x * self).collect(), phantom: PhantomData }
+    }
+}
+
+impl <E, F, T> Mul<NVector<E, T>> for Complex64
+where E: Mul<Complex64, Output = F> + Copy
+{
+    type Output = NVector<F, T>;
+
+    fn mul(self, rhs: NVector<E, T>) -> Self::Output {
+        NVector { data: rhs.data.iter().map(|x| *x * self).collect(), phantom: PhantomData }
     }
 }
 
@@ -432,6 +632,32 @@ impl <E: Display> Display for MatrixSquare<E> {
 mod tests {
     use super::*;
 
+    #[test]
+    fn vector_basics() {
+        let a = NVector::row_from_vec(vec![1.0, 2.0, 3.0]);
+        let b = NVector::row_from_vec(vec![1.0, 3.0, 5.0]);
+        
+        assert_eq!(&a + &b, NVector::row_from_vec(vec![2.0, 5.0, 8.0]));
+        assert_eq!(&a + b.clone(), NVector::row_from_vec(vec![2.0, 5.0, 8.0]));
+        assert_eq!(a.clone() + &b, NVector::row_from_vec(vec![2.0, 5.0, 8.0]));
+        assert_eq!(a.clone() + b.clone(), NVector::row_from_vec(vec![2.0, 5.0, 8.0]));
+
+        assert_eq!(&a - &b,        NVector::row_from_vec(vec![0.0, -1.0, -2.0]));
+        assert_eq!(&a - b.clone(), &a - &b);
+        assert_eq!(a.clone() - &b, &a - &b);
+        assert_eq!(a.clone() - b.clone(), &a - &b);
+        
+        let c = NVector::row_from_vec(vec![1.0, 4.0, 9.0]);
+
+        assert_eq!(&c * 1.5, NVector::row_from_vec(vec![1.5, 6.0, 13.5]));
+        assert_eq!(1.5 * &c, NVector::row_from_vec(vec![1.5, 6.0, 13.5]));
+        assert_eq!(c.clone() * 1.5, NVector::row_from_vec(vec![1.5, 6.0, 13.5]));
+        assert_eq!(1.5 * c.clone(), NVector::row_from_vec(vec![1.5, 6.0, 13.5]));
+
+        assert_eq!(c.len(), 3);
+        assert_eq!(c.elts(), vec![1.0, 4.0, 9.0].as_slice());
+    }
+    
     #[test]
     fn matrix_basics() {
         let row0 = NVector::row_from_vec(vec![1.0, 2.0, 3.0]);
