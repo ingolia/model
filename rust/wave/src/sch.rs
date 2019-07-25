@@ -20,6 +20,28 @@ impl ModelS1 {
         ModelS1 { planck: planck, mass: mass, length: length }
     }
 
+    pub fn position(&self, n: usize) -> MatrixSquare<Complex64> {
+        let mut pos = MatrixSquare::zeros(n);
+
+        for j in 0..n {
+            pos[(j,j)] = Complex64::new(self.length * ((j as f64 + 0.5) / (n as f64)), 0.0);
+        }
+
+        pos
+    }
+
+    pub fn momentum(&self, n: usize) -> MatrixSquare<Complex64> {
+        let mut q = MatrixSquare::zeros(n);
+        
+        for j in 0..n {
+            // - i h d/dx = - i h (psi_{j+1} - psi_{j-1}) = i h psi_{j-1} - i h psi_{j+1}
+            q[(j, (j+n-1)%n)] = Complex64::i() * self.planck;
+            q[(j, (j+n+1)%n)] = -Complex64::i() * self.planck;
+        }
+
+        q
+    }
+    
     pub fn hamiltonian<T>(&self, v: &NVector<f64, T>) -> MatrixSquare<f64> {
         let n = v.len();
         let hstep = self.length / (n as f64);
