@@ -1,10 +1,10 @@
-#![recursion_limit="128"]
+#![recursion_limit="16"]
 use std::borrow::Borrow;
 use std::fmt::{Display,Formatter};
 use std::marker::PhantomData;
 use std::ops::{Add, Index, IndexMut, Mul, Sub};
 
-use blas::{ddot, dgemm, dgemv, dnrm2, dznrm2, dscal, zdotu, zgemm, zgemv, zscal};
+use blas::{ddot, dgemm, dgemv, dnrm2, dznrm2, dscal, zdotc, zgemm, zgemv, zscal};
 use lapack::dsyev;
 use num_complex::*;
 use num_traits::identities::*;
@@ -35,7 +35,7 @@ pub trait Blastype
     fn xscal(x: &mut [Self], a: Self) -> ();
     fn xdot(x: &[Self], y: &[Self]) -> Self;
 
-    fn xgemv_simple(a: &[Self], x: &[Self]) -> Vec<Self>;
+    fn xgemv_simple(trans: bool, a: &[Self], x: &[Self]) -> Vec<Self>;
     fn xgemm_simple(n: usize, a: &[Self], b: &[Self]) -> Vec<Self>;
 }
 
@@ -61,14 +61,14 @@ impl Blastype for f64 {
         }
     }
 
-    fn xgemv_simple(a: &[Self], x: &[Self]) -> Vec<Self> {
+    fn xgemv_simple(trans: bool, a: &[Self], x: &[Self]) -> Vec<Self> {
         let n = x.len();
         if a.len() != n * n {
             panic!("f64 matrix-vector mismatch {} vs {}", x.len(), a.len());
         }
         let mut y = vec![0.0; n];
         unsafe {
-            dgemv(b'N', n as i32, n as i32, 1.0, a, n as i32, x, 1, 0.0, &mut y, 1);
+            dgemv(if trans { b'T' } else { b'N' }, n as i32, n as i32, 1.0, a, n as i32, x, 1, 0.0, &mut y, 1);
         }
         y
     }
@@ -104,19 +104,19 @@ impl Blastype for Complex64 {
         }
         let mut pres: [Complex64; 1] = [Complex64::zero()];
         unsafe {
-            zdotu(&mut pres, x.len() as i32, x, 1, y, 1);
+            zdotc(&mut pres, x.len() as i32, x, 1, y, 1);
         }
         pres[0]
     }
 
-    fn xgemv_simple(a: &[Self], x: &[Self]) -> Vec<Self> {
+    fn xgemv_simple(trans: bool, a: &[Self], x: &[Self]) -> Vec<Self> {
         let n = x.len();
         if a.len() != n * n {
             panic!("c64 matrix-vector mismatch {} vs {}", x.len(), a.len());
         }
         let mut y = vec![zero(); n];
         unsafe {
-            zgemv(b'N', n as i32, n as i32, one(), a, n as i32, x, 1, zero(), &mut y, 1);
+            zgemv(if trans { b'T' } else { b'N' }, n as i32, n as i32, one(), a, n as i32, x, 1, zero(), &mut y, 1);
         }
         y
     }
@@ -184,7 +184,9 @@ impl <E: Blastype, T> NVector<E, T> {
     pub fn scale(&mut self, a: E) -> () {
         Blastype::xscal(&mut self.data, a);
     }
+}
 
+impl <E: Blastype> NVector<E, Row> {
     pub fn dot(&self, y: &NVector<E, Col>) -> E {
         Blastype::xdot(&self.data, &y.data)
     }
@@ -434,6 +436,7 @@ impl<E: Conjugate> Conjugate for NVector<E, Col> {
     }
 }
 
+#[derive(Debug,Clone,Hash,PartialEq,Eq)]
 pub struct MatrixSquare<E> {
     n: usize,
     data: Vec<E>,
@@ -498,11 +501,75 @@ impl <E: Copy> MatrixSquare<E> {
 
 impl <E: Blastype> MatrixSquare<E> {
     pub fn mmulv(&self, v: &NVector<E, Col>) -> NVector<E, Col> {
-        NVector::col_from_vec(Blastype::xgemv_simple(&self.data, &v.data))
+        NVector::col_from_vec(Blastype::xgemv_simple(false, &self.data, &v.data))
     }
 
     pub fn mmulm(&self, b: &MatrixSquare<E>) -> MatrixSquare<E> {
         MatrixSquare { n: self.n, data: Blastype::xgemm_simple(self.n, &self.data, &b.data) }
+    }
+}
+
+impl <'a, 'b> Mul<&'b NVector<f64, Col>> for &'a MatrixSquare<f64> {
+    type Output = NVector<f64, Col>;
+    
+    fn mul(self, rhs: &'b NVector<f64, Col>) -> Self::Output {
+        let n = rhs.data.len();
+        if self.data.len() != n * n {
+            panic!("f64 matrix-vector mismatch {} vs {}", self.data.len(), rhs.data.len());
+        }
+        let mut y = vec![0.0; n];
+        unsafe {
+            dgemv(b'N', n as i32, n as i32, 1.0, &self.data, n as i32, &rhs.data, 1, 0.0, &mut y, 1);
+        }
+        NVector { data: y, phantom: PhantomData }
+    }
+}
+
+impl <'a, 'b> Mul<&'b MatrixSquare<f64>> for &'a NVector<f64, Row> {
+    type Output = NVector<f64, Row>;
+    
+    fn mul(self, rhs: &'b MatrixSquare<f64>) -> Self::Output {
+        let n = self.data.len();
+        if rhs.data.len() != n * n {
+            panic!("f64 matrix-vector mismatch {} vs {}", rhs.data.len(), self.data.len());
+        }
+        let mut y = vec![0.0; n];
+        unsafe {
+            dgemv(b'T', n as i32, n as i32, 1.0, &rhs.data, n as i32, &self.data, 1, 0.0, &mut y, 1);
+        }
+        NVector { data: y, phantom: PhantomData }
+    }
+}
+
+impl <'a, 'b> Mul<&'b NVector<Complex64, Col>> for &'a MatrixSquare<Complex64> {
+    type Output = NVector<Complex64, Col>;
+    
+    fn mul(self, rhs: &'b NVector<Complex64, Col>) -> Self::Output {
+        let n = rhs.data.len();
+        if self.data.len() != n * n {
+            panic!("Complex64 matrix-vector mismatch {} vs {}", self.data.len(), rhs.data.len());
+        }
+        let mut y = vec![zero(); n];
+        unsafe {
+            zgemv(b'N', n as i32, n as i32, one(), &self.data, n as i32, &rhs.data, 1, zero(), &mut y, 1);
+        }
+        NVector { data: y, phantom: PhantomData }
+    }
+}
+
+impl <'a, 'b> Mul<&'b MatrixSquare<Complex64>> for &'a NVector<Complex64, Row> {
+    type Output = NVector<Complex64, Row>;
+    
+    fn mul(self, rhs: &'b MatrixSquare<Complex64>) -> Self::Output {
+        let n = self.data.len();
+        if rhs.data.len() != n * n {
+            panic!("Complex64 matrix-vector mismatch {} vs {}", rhs.data.len(), self.data.len());
+        }
+        let mut y = vec![zero(); n];
+        unsafe {
+            zgemv(b'T', n as i32, n as i32, one(), &rhs.data, n as i32, &self.data, 1, zero(), &mut y, 1);
+        }
+        NVector { data: y, phantom: PhantomData }
     }
 }
 
@@ -691,6 +758,12 @@ mod tests {
         let w = m.mmulv(&v);
         assert_eq!(w[0], 1.0 * 5.0 + 2.0 * 6.0);
         assert_eq!(w[1], 3.0 * 5.0 + 4.0 * 6.0);
+
+        let wexp = NVector::col_from_vec(vec![1.0 * 5.0 + 2.0 * 6.0, 3.0 * 5.0 + 4.0 * 6.0]);
+        assert_eq!(&m * &v, wexp);
+        
+        let wexp = NVector::row_from_vec(vec![5.0 * 1.0 + 6.0 * 3.0, 5.0 * 2.0 + 6.0 * 4.0]);
+        assert_eq!(&(v.dagger()) * &m, wexp);
 
         let row0a = NVector::row_from_vec(vec![7.0, 8.0]);
         let row1a = NVector::row_from_vec(vec![9.0, 1.0]);
