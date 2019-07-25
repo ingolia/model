@@ -11,7 +11,7 @@ mod sch;
 use linalg::*;
 
 fn main() {
-    let n = 40;
+    let n = 10;
     let model = sch::ModelS1::new(sch::PLANCK_DEFAULT, sch::MASS_DEFAULT, sch::LENGTH_DEFAULT);
     let m = model.hamiltonian(&NVector::row_from_vec(vec![0.0; n]));
     let tstep = 1.0 / 128.0;
@@ -31,7 +31,41 @@ fn main() {
 
     let a0b = ssa[0].1.dagger().dot(&ssb[0].1);
     let a2b = ssa[0].1.dagger().dot(&ssb[2].1);
-    // let sum = 
+    let sum = &ssb[0].1 * a0b + &ssb[2].1 * a2b;
+    println!("{:0.4}", sum.dagger());
+
+    let isum = &ssb[0].1 * a0b + &ssb[2].1 * -a2b;
+    println!("{:0.4}", isum.dagger());
+
+    let x = model.position(n);
+    println!("x =\n{:0.2}", x);
+
+    for (i, (eai, vai)) in ssa.iter().enumerate() {
+        let psi: NVector<Complex64, Col> = NVector::from(vai.clone());
+        println!("{:02}\t{:+15.4}", i, psi.dagger());
+        println!("\t{:+15.4}", (&x * &psi).dagger());
+        println!("\t{:.4}", psi.dagger().dot(&(&x * &psi)));
+    }
+    
+    let q = model.momentum(n);
+
+    println!("q =\n{:0.2}", q);
+
+    for (i, (eai, vai)) in ssa.iter().enumerate() {
+        let psi: NVector<Complex64, Col> = NVector::from(vai.clone());
+        println!("{:02}\t{:+15.4}", i, psi.dagger());
+        println!("\t{:+15.4}", (&q * &psi).dagger());
+        println!("\t{:7.4}", psi.dagger().dot(&(&q * &psi)));
+    }
+
+    let h: MatrixSquare<Complex64> = MatrixSquare::from(m.clone());
+    println!("H =\n{:0.2}", h);
+    for (i, (eai, vai)) in ssa.iter().enumerate() {
+        let psi: NVector<Complex64, Col> = NVector::from(vai.clone());
+        println!("{:02}\t{:+15.4}", i, psi.dagger());
+        println!("\t{:+15.4}", (&h * &psi).dagger());
+        println!("\t{:7.4} vs {:7.4}", psi.dagger().dot(&(&h * &psi)), eai);
+    }
 
     let egap = ssb[2].0 - ssb[0].0;
     let time = 0.5 * std::f64::consts::PI / egap;
