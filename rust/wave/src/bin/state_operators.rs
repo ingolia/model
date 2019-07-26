@@ -5,14 +5,12 @@ use std::io::Write;
 use num_complex::*;
 use num_traits::zero;
 
-mod linalg;
-mod sch;
-
-use linalg::*;
+use wave::linalg::*;
+use wave::sch;
 
 fn main() {
-    let n = 10;
-    let model = sch::ModelS1::new(sch::PLANCK_DEFAULT, sch::MASS_DEFAULT, sch::LENGTH_DEFAULT);
+    let n = 12;
+    let model = sch::ModelS1::new(sch::PLANCK_DEFAULT, sch::MASS_DEFAULT, sch::LENGTH_DEFAULT, n);
     let m = model.hamiltonian(&NVector::row_from_vec(vec![0.0; n]));
     let tstep = 1.0 / 128.0;
 
@@ -37,7 +35,7 @@ fn main() {
     let isum = &ssb[0].1 * a0b + &ssb[2].1 * -a2b;
     println!("{:0.4}", isum.dagger());
 
-    let x = model.position(n);
+    let x = model.position();
     println!("x =\n{:0.2}", x);
 
     for (i, (eai, vai)) in ssa.iter().enumerate() {
@@ -47,7 +45,7 @@ fn main() {
         println!("\t{:.4}", psi.dagger().dot(&(&x * &psi)));
     }
     
-    let q = model.momentum(n);
+    let q = model.momentum();
 
     println!("q =\n{:0.2}", q);
 

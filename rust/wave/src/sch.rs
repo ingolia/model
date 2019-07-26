@@ -13,33 +13,51 @@ pub struct ModelS1 {
     planck: f64,
     mass: f64,
     length: f64,
+    hsize: usize,
 }
 
 impl ModelS1 {
-    pub fn new(planck: f64, mass: f64, length: f64) -> Self {
-        ModelS1 { planck: planck, mass: mass, length: length }
+    pub fn new(planck: f64, mass: f64, length: f64, hsize: usize) -> Self {
+        ModelS1 { planck: planck, mass: mass, length: length, hsize: hsize }
     }
 
-    pub fn position(&self, n: usize) -> MatrixSquare<Complex64> {
-        let mut pos = MatrixSquare::zeros(n);
+    pub fn position(&self) -> MatrixSquare<Complex64> {
+        let mut pos = MatrixSquare::zeros(self.hsize);
 
-        for j in 0..n {
-            pos[(j,j)] = Complex64::new(self.length * ((j as f64 + 0.5) / (n as f64)), 0.0);
+        for j in 0..self.hsize {
+            pos[(j,j)] = Complex64::new(self.length * ((j as f64 + 0.5) / (self.hsize as f64)), 0.0);
         }
 
         pos
     }
 
-    pub fn momentum(&self, n: usize) -> MatrixSquare<Complex64> {
-        let mut q = MatrixSquare::zeros(n);
+    pub fn momentum(&self) -> MatrixSquare<Complex64> {
+        let mut q = MatrixSquare::zeros(self.hsize);
         
-        for j in 0..n {
+        for j in 0..self.hsize {
             // - i h d/dx = - i h (psi_{j+1} - psi_{j-1}) = i h psi_{j-1} - i h psi_{j+1}
-            q[(j, (j+n-1)%n)] = Complex64::i() * self.planck;
-            q[(j, (j+n+1)%n)] = -Complex64::i() * self.planck;
+            q[(j, (j+self.hsize-1)%self.hsize)] = Complex64::i() * self.planck;
+            q[(j, (j+self.hsize+1)%self.hsize)] = -Complex64::i() * self.planck;
         }
 
         q
+    }
+
+    pub fn hamiltonian_V0_real(&self) -> MatrixSquare<f64> {
+        let hstep = self.length / (self.hsize as f64);
+
+        let mut hamil = MatrixSquare::zeros(self.hsize);
+
+        let pfact = -0.5 * self.planck * self.planck / self.mass;
+        let hstep2 = 1.0 / (hstep * hstep);
+
+        for j in 0..self.hsize {
+            hamil[(j, (j+self.hsize-1)%self.hsize)] = pfact * hstep2;
+            hamil[(j, (j+self.hsize+1)%self.hsize)] = pfact * hstep2;
+            hamil[(j, j)] = -2.0 * pfact * hstep2;
+        }
+
+        hamil
     }
     
     pub fn hamiltonian<T>(&self, v: &NVector<f64, T>) -> MatrixSquare<f64> {
