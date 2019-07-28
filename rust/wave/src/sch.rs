@@ -60,33 +60,37 @@ impl ModelS1 {
         hamil
     }
     
-    pub fn hamiltonian<T>(&self, v: &NVector<f64, T>) -> MatrixSquare<f64> {
-        let n = v.len();
-        let hstep = self.length / (n as f64);
+    pub fn hamiltonian_V0(&self) -> MatrixSquare<Complex64> {
+        MatrixSquare::from(self.hamiltonian_V0_real())
+    }
+    
+    pub fn hamiltonian_real<T>(&self, v: &NVector<f64, T>) -> MatrixSquare<f64> {
+        if v.len() != self.hsize {
+            panic!("hamiltonian V.len() {} != model hsize {}", v.len(), self.hsize);
+        }
 
-        let mut hamil = MatrixSquare::zeros(n);
-
-        let pfact = -0.5 * self.planck * self.planck / self.mass;
-        let hstep2 = 1.0 / (hstep * hstep);
-
-        for j in 0..n {
-            hamil[(j, (j+n-1)%n)] = pfact * hstep2;
-            hamil[(j, (j+n+1)%n)] = pfact * hstep2;
-            hamil[(j, j)] = -2.0 * pfact * hstep2 + v[j];
+        let mut hamil = self.hamiltonian_V0_real();
+        
+        for j in 0..self.hsize {
+            hamil[(j, j)] += v[j];
         }
 
         hamil
     }
 
-    pub fn hamiltonian_spinor<T>(&self, v: &NVector<f64, T>) -> MatrixSquare<f64> {
-        let mut hamil = self.hamiltonian(v);
-        let n = v.len();
-        
-        hamil[(0,n-1)] = -hamil[(0,n-1)];
-        hamil[(n-1,0)] = -hamil[(n-1,0)];
+    pub fn hamiltonian<T>(&self, v: &NVector<f64, T>) -> MatrixSquare<f64> {
+        MatrixSquare::from(self.hamiltonian_real(v))
+    }
 
-        hamil
-    }    
+    // pub fn hamiltonian_spinor<T>(&self, v: &NVector<f64, T>) -> MatrixSquare<f64> {
+    //     let mut hamil = self.hamiltonian(v);
+    //     let n = v.len();
+        
+    //     hamil[(0,n-1)] = -hamil[(0,n-1)];
+    //     hamil[(n-1,0)] = -hamil[(n-1,0)];
+
+    //     hamil
+    // }    
 }
 
 pub fn stationary_states(hamil: &MatrixSquare<f64>) -> Vec<(f64,NVector<f64,Col>)> {
@@ -143,7 +147,7 @@ pub fn make_time_evol(hamil: &MatrixSquare<f64>, tstep_over_planck: f64) -> Matr
     }
     // println!("eigvalmat =\n{:13.3}", eigvalmat);
 
-    let timeevol = eigvecinv.mmulm(&eigvalmat).mmulm(&eigvecfwd);
+    let timeevol = &eigvecinv * &eigvalmat * &eigvecfwd;
 
     // println!("timeevol =\n{:13.3}", timeevol);
 
