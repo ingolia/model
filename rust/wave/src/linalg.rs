@@ -90,6 +90,50 @@ impl<E, T> IndexMut<usize> for NVector<E, T> {
     }
 }
 
+impl <T> From<NVector<f64, T>> for NVector<Complex64, T> {
+    fn from(v: NVector<f64, T>) -> Self {
+        Self::from(&v)
+    }
+}
+
+impl <'a, T> From<&'a NVector<f64, T>> for NVector<Complex64, T> {
+    fn from(v: &'a NVector<f64, T>) -> Self {
+        NVector { data: v.data.iter().map(Complex64::from).collect(), phantom: PhantomData }
+    }
+}
+
+impl <E: Display> Display for NVector<E, Row> {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), std::fmt::Error> {
+        let mut iter = self.data.iter();
+
+        write!(f, "[")?;
+        if let Some(x) = iter.next() {
+            x.fmt(f)?;
+        }
+        for x in iter {
+            write!(f, ", ")?;
+            x.fmt(f)?;
+        }
+        write!(f, "]")
+    }
+}
+
+impl <E: Display> Display for NVector<E, Col> {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), std::fmt::Error> {
+        let mut iter = self.data.iter();
+
+        write!(f, "[")?;
+        if let Some(x) = iter.next() {
+            x.fmt(f)?;
+        }
+        for x in iter {
+            write!(f, ", ")?;
+            x.fmt(f)?;
+        }
+        write!(f, "]'")
+    }
+}
+
 impl<E: Conjugate> Conjugate for NVector<E, Row> {
     type Output = NVector<E::Output, Col>;
     fn dagger(&self) -> Self::Output {
@@ -139,7 +183,7 @@ nvector_all_binop!(impl Sub, sub, NVector<E, Row>, NVector<E, Row>, NVector<E, R
 nvector_all_binop!(impl Sub, sub, NVector<E, Col>, NVector<E, Col>, NVector<E, Col>, NVector::empty(), |mut acc, (&x, &y)| { acc.data.push(x - y); acc });
 
 // NVector * NVector is dot product
-nvector_val_val_binop!(impl Mul, mul, NVector<E, Row>, NVector<E, Col>, E, zero(), |mut acc, (&x, &y)| { acc = acc + (x * y); acc });
+nvector_all_binop!(impl Mul, mul, NVector<E, Row>, NVector<E, Col>, E, zero(), |mut acc, (&x, &y)| { acc = acc + (x * y); acc });
 
 macro_rules! nvector_scalar_pdt {
     (impl $vecty:ty, $scaty: ty, $outeltty:ty) => {
