@@ -39,7 +39,14 @@ fn main() {
         let psi_ai: NVector<Complex64, Col> = NVector::from(&ssa[i].1);
         println!("{:02}\ta\t{:0.3}\t{}", i, ssa[i].0, state_obs(&psi_ai));
     }
+    
+    let psi_a1: NVector<Complex64,Col> = NVector::from(&ssa[1].1);
+    let psi_a2: NVector<Complex64,Col> = NVector::from(&ssa[2].1);
 
+    let psiq = std::f64::consts::FRAC_1_SQRT_2 * (psi_a1 + Complex64::i() * psi_a2);
+    println!("psiq\t{:13.3}\t{:13.3}", psiq, psiq.dagger() * &psiq);
+    println!("psiq\t{}", state_obs(&psiq));
+    
     for i in 0..NSTATES {
         let psi_bi: NVector<Complex64, Col> = NVector::from(&ssb[i].1);
         println!("{:02}\tb\t{:0.3}\t{}", i, ssb[i].0, state_obs(&psi_bi));
@@ -71,14 +78,14 @@ fn main() {
         println!("{:0.2}\t{:0.3}\t{:0.3}\t{:0.3}\t{:0.3}", i, eai, t0.dagger() * &vai, t1.dagger() * &vai, t2.dagger() * &vai);
     }
 
-    let psi_a0 = NVector::from(&ssa[0].1);
-    let psi_a1 = NVector::from(&ssa[1].1);
-    let psi_a2 = NVector::from(&ssa[2].1);
-    
+    let psi_a0: NVector<Complex64,Col> = NVector::from(&ssa[0].1);
+    let psi_a1: NVector<Complex64,Col> = NVector::from(&ssa[1].1);
+    let psi_a2: NVector<Complex64,Col> = NVector::from(&ssa[2].1);
+
     let t1a0 = t1.dagger() * &psi_a0;
     let t1a1 = t1.dagger() * &psi_a1;
     let t1a2 = t1.dagger() * &psi_a2;
-    let t1_0 = t1a0 * &psi_a0 + t1a1 * &psi_a1 + t1a2 * &psi_a2;
+    let t1_0 = t1a0 * &psi_a0 + (t1a1 * &psi_a1 + t1a2 * &psi_a2);
     let t1_1 = t1a0 * &psi_a0 + Complex::i() * (t1a1 * &psi_a1 + t1a2 * &psi_a2);
     let t1_2 = t1a0 * &psi_a0 + -1.0 * (t1a1 * &psi_a1 + t1a2 * &psi_a2);
 
@@ -86,9 +93,13 @@ fn main() {
     println!("t1_1\t{}", state_obs(&t1_1));
     println!("t1_2\t{}", state_obs(&t1_2));
 
-    println!("t1_0\t{:0.3}", t1_0);
-    println!("t1_1\t{:0.3}", t1_1);
-    println!("t1_2\t{:0.3}", t1_2);
+    println!("psi_a0\t{:13.3}\t{:13.3}", psi_a0, t1a0);
+    println!("psi_a1\t{:13.3}\t{:13.3}", psi_a1, t1a1);
+    println!("psi_a2\t{:13.3}\t{:13.3}", psi_a2, t1a2);
+    
+    println!("t1_0\t{:13.3}\t{:13.3}", t1_0, t1_0.dagger() * &t1_0);
+    println!("t1_1\t{:13.3}\t{:13.3}", t1_1, t1_1.dagger() * &t1_1);
+    println!("t1_2\t{:13.3}\t{:13.3}", t1_2, t1_2.dagger() * &t1_2);
     
     // println!("{:0.4}", sum.dagger());
 
