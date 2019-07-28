@@ -451,7 +451,7 @@ macro_rules! matrix_binop_refs {
             type Output = MatrixSquare<E>;
             #[inline]
             fn $method(self, rhs: &MatrixSquare<E>) -> Self::Output {
-                self.$method(rhs)
+                (&self).$method(rhs)
             }
         }
         
@@ -467,7 +467,7 @@ macro_rules! matrix_binop_refs {
             type Output = MatrixSquare<E>;
             #[inline]
             fn $method(self, rhs: MatrixSquare<E>) -> Self::Output {
-                self.$method(&rhs)
+                (&self).$method(&rhs)
             }
         }
     };
@@ -526,7 +526,7 @@ macro_rules! matrix_vector_binop_refs {
             type Output = $outty;
             #[inline]
             fn $method(self, rhs: &$rhsty) -> Self::Output {
-                self.$method(rhs)
+                (&self).$method(rhs)
             }
         }
         
@@ -542,7 +542,7 @@ macro_rules! matrix_vector_binop_refs {
             type Output = $outty;
             #[inline]
             fn $method(self, rhs: $rhsty) -> Self::Output {
-                self.$method(&rhs)
+                (&self).$method(&rhs)
             }
         }
     };
