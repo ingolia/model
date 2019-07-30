@@ -12,13 +12,13 @@ pub const NSTATES: usize = 5;
 
 fn main() {
     let model = sch::ModelS1::new(sch::PLANCK_DEFAULT, sch::MASS_DEFAULT, sch::LENGTH_DEFAULT, HSIZE);
-    let ma = model.hamiltonian_V0_real();
+    let ma = model.hamiltonian_v0_real();
     let ssa = sch::stationary_states(&ma);
     sch::write_stationary("psi-a.csv", "e-a.csv", &ma).unwrap();
 
     let xsin: Vec<f64> = (0..HSIZE).map(|k| 2.0 * std::f64::consts::PI * (k as f64) / (HSIZE as f64)).collect();
     let vsin: Vec<f64> = xsin.iter().map(|x| 2.0 * x.sin()).collect();
-    let mb = model.hamiltonian_real(&NVector::row_from_vec(vsin));
+    let mb = model.hamiltonian_real(&RVector::from(vsin));
     let ssb = sch::stationary_states(&mb);
     sch::write_stationary("psi-b.csv", "e-b.csv", &mb).unwrap();
 
@@ -27,7 +27,7 @@ fn main() {
     let hahat = MatrixSquare::from(ma);
     let hbhat = MatrixSquare::from(mb);
 
-    let state_obs = |psi: &NVector<Complex64,Col>| {
+    let state_obs = |psi: &CVector<Complex64>| {
         let x = psi.dagger() * &xhat * psi;
         let q = psi.dagger() * &qhat * psi;
         let ea = psi.dagger() * &hahat * psi;
@@ -36,19 +36,19 @@ fn main() {
     };
     
     for i in 0..NSTATES {
-        let psi_ai: NVector<Complex64, Col> = NVector::from(&ssa[i].1);
+        let psi_ai: CVector<Complex64> = CVector::from(&ssa[i].1);
         println!("{:02}\ta\t{:0.3}\t{}", i, ssa[i].0, state_obs(&psi_ai));
     }
     
-    let psi_a1: NVector<Complex64,Col> = NVector::from(&ssa[1].1);
-    let psi_a2: NVector<Complex64,Col> = NVector::from(&ssa[2].1);
+    let psi_a1: CVector<Complex64> = CVector::from(&ssa[1].1);
+    let psi_a2: CVector<Complex64> = CVector::from(&ssa[2].1);
 
     let psiq = std::f64::consts::FRAC_1_SQRT_2 * (psi_a1 + Complex64::i() * psi_a2);
     println!("psiq\t{:13.3}\t{:13.3}", psiq, psiq.dagger() * &psiq);
     println!("psiq\t{}", state_obs(&psiq));
     
     for i in 0..NSTATES {
-        let psi_bi: NVector<Complex64, Col> = NVector::from(&ssb[i].1);
+        let psi_bi: CVector<Complex64> = CVector::from(&ssb[i].1);
         println!("{:02}\tb\t{:0.3}\t{}", i, ssb[i].0, state_obs(&psi_bi));
     }
 
@@ -58,8 +58,8 @@ fn main() {
 
     let a0b = Complex64::from(ssa[0].1.dagger() * &ssb[0].1);
     let a2b = Complex64::from(ssa[0].1.dagger() * &ssb[2].1);
-    let psi_b0 = NVector::from(&ssb[0].1);
-    let psi_b2 = NVector::from(&ssb[2].1);
+    let psi_b0 = CVector::from(&ssb[0].1);
+    let psi_b2 = CVector::from(&ssb[2].1);
     let t0 = &psi_b0 * a0b + &psi_b2 * a2b;
     let t1 = &psi_b0 * a0b + &psi_b2 * a2b * Complex::i();
     let t2 = &psi_b0 * a0b - &psi_b2 * a2b;
@@ -74,13 +74,13 @@ fn main() {
     println!("t1' t1=\t{:0.3}", t1.dagger() * &t1);
 
     for (i, (eai, rvai)) in ssa.iter().enumerate() {
-        let vai = NVector::from(rvai);
+        let vai = CVector::from(rvai);
         println!("{:0.2}\t{:0.3}\t{:0.3}\t{:0.3}\t{:0.3}", i, eai, t0.dagger() * &vai, t1.dagger() * &vai, t2.dagger() * &vai);
     }
 
-    let psi_a0: NVector<Complex64,Col> = NVector::from(&ssa[0].1);
-    let psi_a1: NVector<Complex64,Col> = NVector::from(&ssa[1].1);
-    let psi_a2: NVector<Complex64,Col> = NVector::from(&ssa[2].1);
+    let psi_a0: CVector<Complex64> = CVector::from(&ssa[0].1);
+    let psi_a1: CVector<Complex64> = CVector::from(&ssa[1].1);
+    let psi_a2: CVector<Complex64> = CVector::from(&ssa[2].1);
 
     let t1a0 = t1.dagger() * &psi_a0;
     let t1a1 = t1.dagger() * &psi_a1;
