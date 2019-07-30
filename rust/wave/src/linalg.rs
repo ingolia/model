@@ -1,11 +1,9 @@
-use std::borrow::Borrow;
 use std::fmt::{Display,Formatter};
-use std::marker::PhantomData;
-use std::ops::{Add, AddAssign, Index, IndexMut, Mul, Sub};
+use std::ops::{Add, Index, IndexMut, Mul, Sub};
 
 use lapack::dsyev;
 use num_complex::*;
-use num_traits::{Num, NumOps};
+use num_traits::Num;
 use num_traits::identities::*;
 
 /// A mathematical entity with a conjugate transpose

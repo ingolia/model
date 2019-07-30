@@ -43,7 +43,7 @@ impl ModelS1 {
         q
     }
 
-    pub fn hamiltonian_V0_real(&self) -> MatrixSquare<f64> {
+    pub fn hamiltonian_v0_real(&self) -> MatrixSquare<f64> {
         let hstep = self.length / (self.hsize as f64);
 
         let mut hamil = MatrixSquare::zeros(self.hsize);
@@ -60,8 +60,8 @@ impl ModelS1 {
         hamil
     }
     
-    pub fn hamiltonian_V0(&self) -> MatrixSquare<Complex64> {
-        MatrixSquare::from(self.hamiltonian_V0_real())
+    pub fn hamiltonian_v0(&self) -> MatrixSquare<Complex64> {
+        MatrixSquare::from(self.hamiltonian_v0_real())
     }
     
     pub fn hamiltonian_real(&self, v: &RVector<f64>) -> MatrixSquare<f64> {
@@ -69,7 +69,7 @@ impl ModelS1 {
             panic!("hamiltonian V.len() {} != model hsize {}", v.len(), self.hsize);
         }
 
-        let mut hamil = self.hamiltonian_V0_real();
+        let mut hamil = self.hamiltonian_v0_real();
         
         for j in 0..self.hsize {
             hamil[(j, j)] += v[j];
