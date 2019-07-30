@@ -1,4 +1,3 @@
-#![recursion_limit="16"]
 use std::borrow::Borrow;
 use std::fmt::{Display,Formatter};
 use std::marker::PhantomData;
@@ -9,8 +8,21 @@ use num_complex::*;
 use num_traits::{Num, NumOps};
 use num_traits::identities::*;
 
+/// A mathematical entity with a conjugate transpose
 pub trait Conjugate {
+    /// The resulting type after conjugate transpose
     type Output;
+
+    /// Returns the conjugate transpose.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use num_complex::*;
+    /// let z = Complex::new(+1.0, +1.0);
+    /// let zdag = z.dagger();
+    /// assert_eq!(zdag, -1.0);
+    /// ```
     fn dagger(&self) -> Self::Output;
 }
 
@@ -28,83 +40,74 @@ impl Conjugate for Complex<f64> {
     }
 }
 
-pub trait VType {}
+pub trait NVector<E> {
+    fn len(&self) -> usize;
+    fn elts(&self) -> &[E];
+}
 
-#[derive(Debug,Clone,Copy,Hash,PartialEq,Eq)]
-pub struct Row {}
-impl VType for Row {}
-
-#[derive(Debug,Clone,Copy,Hash,PartialEq,Eq)]
-pub struct Col {}
-impl VType for Col {}
-
+/// Numerical column vector for linear algebra. The vector is
+/// parameterized over an element type `E`.
 #[derive(Debug,Clone,Hash,PartialEq,Eq)]
-pub struct NVector<E, T> {
-    data: Vec<E>,
-    phantom: PhantomData<T>,
-}
+pub struct CVector<E>(Vec<E>);
 
-impl<E, T> NVector<E, T> {
-    fn empty() -> Self {
-        NVector { data: Vec::new(), phantom: PhantomData }
-    }
+/// Numerical row vector for linear algebra. The vector is
+/// parameterized over an element type `E`.
+#[derive(Debug,Clone,Hash,PartialEq,Eq)]
+pub struct RVector<E>(Vec<E>);
 
-    pub fn len(&self) -> usize {
-        self.data.len()
-    }
+macro_rules! nvector_type {
+    (impl $vtype:ident) => {
 
-    pub fn elts(&self) -> &[E] {
-        self.data.as_slice()
-    }
-}
+        impl <E> NVector<E> for $vtype<E> {
+            fn len(&self) -> usize {
+                self.0.len()
+            }
+            
+            fn elts(&self) -> &[E] {
+                self.0.as_slice()
+            }
+        }
 
-impl<E> NVector<E, Row> {
-    pub fn row_from_vec(data: Vec<E>) -> Self {
-        NVector {
-            data: data,
-            phantom: PhantomData,
+        impl <E> From<Vec<E>> for $vtype<E> {
+            fn from(v: Vec<E>) -> Self {
+                $vtype(v)
+            }
+        }
+
+        impl<E> Index<usize> for $vtype<E> {
+            type Output = E;
+            
+            fn index(&self, idx: usize) -> &E {
+                &self.0[idx]
+            }
+        }
+
+        impl<E> IndexMut<usize> for $vtype<E> {
+            fn index_mut(&mut self, idx: usize) -> &mut E {
+                &mut self.0[idx]
+            }
+        }
+
+        impl From<$vtype<f64>> for $vtype<Complex64> {
+            fn from(v: $vtype<f64>) -> Self {
+                Self::from(&v)
+            }
+        }
+
+        impl <'a> From<&'a $vtype<f64>> for $vtype<Complex64> {
+            fn from(v: &'a $vtype<f64>) -> Self {
+                $vtype(v.0.iter().map(Complex64::from).collect())
+            }
         }
     }
 }
 
-impl<E> NVector<E, Col> {
-    pub fn col_from_vec(data: Vec<E>) -> Self {
-        NVector {
-            data: data,
-            phantom: PhantomData,
-        }
-    }
-}
-
-impl<E, T> Index<usize> for NVector<E, T> {
-    type Output = E;
-
-    fn index(&self, idx: usize) -> &E {
-        &self.data[idx]
-    }
-}
-
-impl<E, T> IndexMut<usize> for NVector<E, T> {
-    fn index_mut(&mut self, idx: usize) -> &mut E {
-        &mut self.data[idx]
-    }
-}
-
-impl <T> From<NVector<f64, T>> for NVector<Complex64, T> {
-    fn from(v: NVector<f64, T>) -> Self {
-        Self::from(&v)
-    }
-}
-
-impl <'a, T> From<&'a NVector<f64, T>> for NVector<Complex64, T> {
-    fn from(v: &'a NVector<f64, T>) -> Self {
-        NVector { data: v.data.iter().map(Complex64::from).collect(), phantom: PhantomData }
-    }
-}
-
-impl <E: Display> Display for NVector<E, Row> {
+nvector_type!(impl CVector);
+nvector_type!(impl RVector);
+    
+impl <E: Display> Display for RVector<E> {
     fn fmt(&self, f: &mut Formatter) -> Result<(), std::fmt::Error> {
-        let mut iter = self.data.iter();
+        let mut iter = self.0.iter();
 
         write!(f, "[")?;
         if let Some(x) = iter.next() {
@@ -118,9 +121,9 @@ impl <E: Display> Display for NVector<E, Row> {
     }
 }
 
-impl <E: Display> Display for NVector<E, Col> {
+impl <E: Display> Display for CVector<E> {
     fn fmt(&self, f: &mut Formatter) -> Result<(), std::fmt::Error> {
-        let mut iter = self.data.iter();
+        let mut iter = self.0.iter();
 
         write!(f, "[")?;
         if let Some(x) = iter.next() {
@@ -134,17 +137,17 @@ impl <E: Display> Display for NVector<E, Col> {
     }
 }
 
-impl<E: Conjugate> Conjugate for NVector<E, Row> {
-    type Output = NVector<E::Output, Col>;
+impl<E: Conjugate> Conjugate for RVector<E> {
+    type Output = CVector<E::Output>;
     fn dagger(&self) -> Self::Output {
-        NVector::col_from_vec(self.data.iter().map(Conjugate::dagger).collect())
+        CVector(self.0.iter().map(Conjugate::dagger).collect())
     }
 }
 
-impl<E: Conjugate> Conjugate for NVector<E, Col> {
-    type Output = NVector<E::Output, Row>;
+impl<E: Conjugate> Conjugate for CVector<E> {
+    type Output = RVector<E::Output>;
     fn dagger(&self) -> Self::Output {
-        NVector::row_from_vec(self.data.iter().map(Conjugate::dagger).collect())
+        RVector(self.0.iter().map(Conjugate::dagger).collect())
     }
 }
 
@@ -156,10 +159,10 @@ macro_rules! nvector_val_val_binop {
 
             #[inline]
             fn $method(self, rhs: $rhsty) -> Self::Output {
-                if self.data.len() != rhs.data.len() {
-                    panic!("NVector $imp length mismatch {} vs {}", self.data.len(), rhs.data.len());
+                if self.0.len() != rhs.0.len() {
+                    panic!("NVector $imp length mismatch {} vs {}", self.0.len(), rhs.0.len());
                 }
-                self.data.iter().zip(rhs.data.iter()).fold($foldzero, $foldfunc)
+                self.0.iter().zip(rhs.0.iter()).fold($foldzero, $foldfunc)
             }
         }
     };
@@ -175,53 +178,73 @@ macro_rules! nvector_all_binop {
 }
 
 // NVector + NVector
-nvector_all_binop!(impl Add, add, NVector<E, Row>, NVector<E, Row>, NVector<E, Row>, NVector::empty(), |mut acc, (&x, &y)| { acc.data.push(x + y); acc });
-nvector_all_binop!(impl Add, add, NVector<E, Col>, NVector<E, Col>, NVector<E, Col>, NVector::empty(), |mut acc, (&x, &y)| { acc.data.push(x + y); acc });
+nvector_all_binop!(impl Add, add, RVector<E>, RVector<E>, RVector<E>, RVector(Vec::new()), |mut acc, (&x, &y)| { acc.0.push(x + y); acc });
+nvector_all_binop!(impl Add, add, CVector<E>, CVector<E>, CVector<E>, CVector(Vec::new()), |mut acc, (&x, &y)| { acc.0.push(x + y); acc });
 
 // NVector - NVector
-nvector_all_binop!(impl Sub, sub, NVector<E, Row>, NVector<E, Row>, NVector<E, Row>, NVector::empty(), |mut acc, (&x, &y)| { acc.data.push(x - y); acc });
-nvector_all_binop!(impl Sub, sub, NVector<E, Col>, NVector<E, Col>, NVector<E, Col>, NVector::empty(), |mut acc, (&x, &y)| { acc.data.push(x - y); acc });
+nvector_all_binop!(impl Sub, sub, RVector<E>, RVector<E>, RVector<E>, RVector(Vec::new()), |mut acc, (&x, &y)| { acc.0.push(x - y); acc });
+nvector_all_binop!(impl Sub, sub, CVector<E>, CVector<E>, CVector<E>, CVector(Vec::new()), |mut acc, (&x, &y)| { acc.0.push(x - y); acc });
 
 // NVector * NVector is dot product
-nvector_all_binop!(impl Mul, mul, NVector<E, Row>, NVector<E, Col>, E, zero(), |mut acc, (&x, &y)| { acc = acc + (x * y); acc });
+nvector_all_binop!(impl Mul, mul, RVector<E>, CVector<E>, E, zero(), |mut acc, (&x, &y)| { acc = acc + (x * y); acc });
 
 macro_rules! nvector_scalar_pdt {
-    (impl $vecty:ty, $scaty: ty, $outeltty:ty) => {
-        impl <T> Mul<$vecty> for $scaty
+    (impl $vec: ident, $eltty: ty, $scaty: ty, $outeltty:ty) => {
+        impl Mul<$vec<$eltty>> for $scaty
         {
-            type Output = NVector<$outeltty, T>;
+            type Output = $vec<$outeltty>;
 
             #[inline]
-            fn mul(self, rhs: $vecty) -> Self::Output {
-                let y: Vec<$outeltty> = rhs.data.iter().map(|&x| <$outeltty>::from(x) * <$outeltty>::from(self)).collect();
-                NVector { data: y, phantom: PhantomData }
+            fn mul(self, rhs: $vec<$eltty>) -> Self::Output {
+                let y: Vec<$outeltty> = rhs.0.iter().map(|&x| <$outeltty>::from(x) * <$outeltty>::from(self)).collect();
+                $vec(y)
             }
         }
 
-        impl <T> Mul<$scaty> for $vecty
+        impl Mul<&$vec<$eltty>> for $scaty
         {
-            type Output = NVector<$outeltty, T>;
+            type Output = $vec<$outeltty>;
+
+            #[inline]
+            fn mul(self, rhs: &$vec<$eltty>) -> Self::Output {
+                let y: Vec<$outeltty> = rhs.0.iter().map(|&x| <$outeltty>::from(x) * <$outeltty>::from(self)).collect();
+                $vec(y)
+            }
+        }
+
+        impl Mul<$scaty> for $vec<$eltty>
+        {
+            type Output = $vec<$outeltty>;
 
             #[inline]
             fn mul(self, rhs: $scaty) -> Self::Output {
-                let y: Vec<$outeltty> = self.data.iter().map(|&x| <$outeltty>::from(x) * <$outeltty>::from(rhs)).collect();
-                NVector { data: y, phantom: PhantomData }
+                let y: Vec<$outeltty> = self.0.iter().map(|&x| <$outeltty>::from(x) * <$outeltty>::from(rhs)).collect();
+                $vec(y)
             }
         }
+
+        impl Mul<$scaty> for &$vec<$eltty>
+        {
+            type Output = $vec<$outeltty>;
+
+            #[inline]
+            fn mul(self, rhs: $scaty) -> Self::Output {
+                let y: Vec<$outeltty> = self.0.iter().map(|&x| <$outeltty>::from(x) * <$outeltty>::from(rhs)).collect();
+                $vec(y)
+            }
+        }
+
     };
 }
 
-macro_rules! nvector_scalar_all_pdt {
-    (impl $vecty:ty, $scaty: ty, $outeltty: ty) => {
-        nvector_scalar_pdt!(impl $vecty, $scaty, $outeltty);
-        nvector_scalar_pdt!(impl &$vecty, $scaty, $outeltty);
-    }
-}
-
 // NVector * scalar
-nvector_scalar_all_pdt!(impl NVector<f64, T>, f64, f64);
-nvector_scalar_all_pdt!(impl NVector<Complex64, T>, f64, Complex64);
-nvector_scalar_all_pdt!(impl NVector<Complex64, T>, Complex64, Complex64);
+nvector_scalar_pdt!(impl CVector, f64, f64, f64);
+nvector_scalar_pdt!(impl CVector, Complex64, f64, Complex64);
+nvector_scalar_pdt!(impl CVector, Complex64, Complex64, Complex64);
+
+nvector_scalar_pdt!(impl RVector, f64, f64, f64);
+nvector_scalar_pdt!(impl RVector, Complex64, f64, Complex64);
+nvector_scalar_pdt!(impl RVector, Complex64, Complex64, Complex64);
 
 #[derive(Debug,Clone,Hash,PartialEq,Eq)]
 pub struct MatrixSquare<E> {
@@ -246,7 +269,7 @@ impl<E> MatrixSquare<E> {
 
     #[inline]
     fn data_rowcol(&self, index: usize) -> (usize, usize) {
-        if index < 0 || index >= (self.n * self.n) {
+        if index >= (self.n * self.n) {
             panic!("Data offset {} for {}x{} MatrixSquare", index, self.n, self.n);
         }
         (index % self.n, index / self.n)
@@ -254,31 +277,31 @@ impl<E> MatrixSquare<E> {
 }
 
 impl <E: Copy> MatrixSquare<E> {
-    pub fn rows(&self) -> Vec<NVector<E, Row>> {
+    pub fn rows(&self) -> Vec<RVector<E>> {
         let mut rows = Vec::with_capacity(self.n);
         for i in 0..self.n {
             let mut row = Vec::with_capacity(self.n);
             for j in 0..self.n {
                 row.push(self[(i, j)]);
             }
-            rows.push(NVector::row_from_vec(row));
+            rows.push(RVector::from(row));
         }
         rows
     }
 
-    pub fn cols(&self) -> Vec<NVector<E, Col>> {
+    pub fn cols(&self) -> Vec<CVector<E>> {
         let mut cols = Vec::with_capacity(self.n);
         for j in 0..self.n {
             let mut col = Vec::with_capacity(self.n);
             for i in 0..self.n {
                 col.push(self[(i, j)]);
             }
-            cols.push(NVector::col_from_vec(col));
+            cols.push(CVector::from(col));
         }
         cols
     }
 
-    pub fn from_rows(rows: &[NVector<E, Row>]) -> Self {
+    pub fn from_rows(rows: &[RVector<E>]) -> Self {
         let n = rows.len();
         let mut data = Vec::with_capacity(n*n);
         for i in 0..n {
@@ -428,23 +451,6 @@ impl <E: Display> Display for MatrixSquare<E> {
     }
 }
 
-macro_rules! matrix_val_val_binop {
-    (impl $imp:ident, $method:ident, $lhsty:ty, $rhsty: ty, $output:ty, $foldzero: expr, $foldfunc: expr) => {
-        impl <E: Copy + Num> $imp<$rhsty> for $lhsty
-        {
-            type Output = $output;
-
-            #[inline]
-            fn $method(self, rhs: $rhsty) -> Self::Output {
-                if self.data.len() != rhs.data.len() {
-                    panic!("NVector $imp length mismatch {} vs {}", self.data.len(), rhs.data.len());
-                }
-                self.data.iter().zip(rhs.data.iter()).fold($foldzero, $foldfunc)
-            }
-        }
-    };
-}
-
 macro_rules! matrix_binop_refs {
     (impl $imp:ident, $method:ident) => {
         impl <E: Copy + Num> $imp<&MatrixSquare<E>> for MatrixSquare<E> {
@@ -548,10 +554,10 @@ macro_rules! matrix_vector_binop_refs {
     };
 }
 
-impl <E: Copy + Num> Mul<&NVector<E, Col>> for &MatrixSquare<E> {
-    type Output = NVector<E, Col>;
+impl <E: Copy + Num> Mul<&CVector<E>> for &MatrixSquare<E> {
+    type Output = CVector<E>;
     #[inline]
-    fn mul(self, rhs: &NVector<E, Col>) -> Self::Output {
+    fn mul(self, rhs: &CVector<E>) -> Self::Output {
         if self.n != rhs.len() {
             panic!("MatrixSquare Vector mul size mismatch {} vs {}", self.n, rhs.len());
         }
@@ -560,14 +566,14 @@ impl <E: Copy + Num> Mul<&NVector<E, Col>> for &MatrixSquare<E> {
             let out_i = (0..self.n).fold(zero(), |mut acc, j| { acc = acc + self[(i, j)] * rhs[j]; acc });
             out.push(out_i);
         }
-        NVector { data: out, phantom: PhantomData }
+        CVector(out)
     }
 }
 
-matrix_vector_binop_refs!(impl Mul, mul, MatrixSquare<E>, NVector<E, Col>, NVector<E, Col>);
+matrix_vector_binop_refs!(impl Mul, mul, MatrixSquare<E>, CVector<E>, CVector<E>);
 
-impl <E: Copy + Num> Mul<&MatrixSquare<E>> for &NVector<E, Row> {
-    type Output = NVector<E, Row>;
+impl <E: Copy + Num> Mul<&MatrixSquare<E>> for &RVector<E> {
+    type Output = RVector<E>;
     #[inline]
     fn mul(self, rhs: &MatrixSquare<E>) -> Self::Output {
         if self.len() != rhs.n {
@@ -578,47 +584,54 @@ impl <E: Copy + Num> Mul<&MatrixSquare<E>> for &NVector<E, Row> {
             let out_j = (0..rhs.n).fold(zero(), |mut acc, i| { acc = acc + self[i] * rhs[(i, j)]; acc });
             out.push(out_j);
         }
-        NVector { data: out, phantom: PhantomData }
+        RVector(out)
     }
 }
 
-matrix_vector_binop_refs!(impl Mul, mul, NVector<E, Row>, MatrixSquare<E>, NVector<E, Row>);
+matrix_vector_binop_refs!(impl Mul, mul, RVector<E>, MatrixSquare<E>, RVector<E>);
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    #[test]
-    fn vector_basics() {
-        let a = NVector::row_from_vec(vec![1.0, 2.0, 3.0]);
-        let b = NVector::row_from_vec(vec![1.0, 3.0, 5.0]);
-        
-        assert_eq!(&a + &b, NVector::row_from_vec(vec![2.0, 5.0, 8.0]));
-        assert_eq!(&a + b.clone(), NVector::row_from_vec(vec![2.0, 5.0, 8.0]));
-        assert_eq!(a.clone() + &b, NVector::row_from_vec(vec![2.0, 5.0, 8.0]));
-        assert_eq!(a.clone() + b.clone(), NVector::row_from_vec(vec![2.0, 5.0, 8.0]));
-
-        assert_eq!(&a - &b,        NVector::row_from_vec(vec![0.0, -1.0, -2.0]));
-        assert_eq!(&a - b.clone(), &a - &b);
-        assert_eq!(a.clone() - &b, &a - &b);
-        assert_eq!(a.clone() - b.clone(), &a - &b);
-        
-        let c = NVector::row_from_vec(vec![1.0, 4.0, 9.0]);
-
-        assert_eq!(&c * 1.5, NVector::row_from_vec(vec![1.5, 6.0, 13.5]));
-        assert_eq!(1.5 * &c, NVector::row_from_vec(vec![1.5, 6.0, 13.5]));
-        assert_eq!(c.clone() * 1.5, NVector::row_from_vec(vec![1.5, 6.0, 13.5]));
-        assert_eq!(1.5 * c.clone(), NVector::row_from_vec(vec![1.5, 6.0, 13.5]));
-
-        assert_eq!(c.len(), 3);
-        assert_eq!(c.elts(), vec![1.0, 4.0, 9.0].as_slice());
+    macro_rules! test_vector {
+        (test $name:ident, $vec:ident) => {
+            #[test]
+            fn $name() {
+                let a = $vec::from(vec![1.0, 2.0, 3.0]);
+                let b = $vec::from(vec![1.0, 3.0, 5.0]);
+                
+                assert_eq!(&a + &b, $vec::from(vec![2.0, 5.0, 8.0]));
+                assert_eq!(&a + b.clone(), $vec::from(vec![2.0, 5.0, 8.0]));
+                assert_eq!(a.clone() + &b, $vec::from(vec![2.0, 5.0, 8.0]));
+                assert_eq!(a.clone() + b.clone(), $vec::from(vec![2.0, 5.0, 8.0]));
+                
+                assert_eq!(&a - &b,        $vec::from(vec![0.0, -1.0, -2.0]));
+                assert_eq!(&a - b.clone(), &a - &b);
+                assert_eq!(a.clone() - &b, &a - &b);
+                assert_eq!(a.clone() - b.clone(), &a - &b);
+                
+                let c = $vec::from(vec![1.0, 4.0, 9.0]);
+                
+                assert_eq!(&c * 1.5, $vec::from(vec![1.5, 6.0, 13.5]));
+                assert_eq!(1.5 * &c, $vec::from(vec![1.5, 6.0, 13.5]));
+                assert_eq!(c.clone() * 1.5, $vec::from(vec![1.5, 6.0, 13.5]));
+                assert_eq!(1.5 * c.clone(), $vec::from(vec![1.5, 6.0, 13.5]));
+                
+                assert_eq!(c.len(), 3);
+                assert_eq!(c.elts(), vec![1.0, 4.0, 9.0].as_slice());
+            }
+        };
     }
+
+    test_vector!(test test_rvector, RVector);
+    test_vector!(test test_cvector, CVector);
     
     #[test]
     fn matrix_basics() {
-        let row0 = NVector::row_from_vec(vec![1.0, 2.0, 3.0]);
-        let row1 = NVector::row_from_vec(vec![4.0, 5.0, 6.0]);
-        let row2 = NVector::row_from_vec(vec![7.0, 8.0, 9.0]);
+        let row0 = RVector::from(vec![1.0, 2.0, 3.0]);
+        let row1 = RVector::from(vec![4.0, 5.0, 6.0]);
+        let row2 = RVector::from(vec![7.0, 8.0, 9.0]);
 
         let rows_in = vec![row0, row1, row2];
 
@@ -632,30 +645,30 @@ mod tests {
             }
         }
 
-        let cols_out: Vec<NVector<f64,Row>> = m.dagger().cols().iter().map(Conjugate::dagger).collect();
+        let cols_out: Vec<RVector<f64>> = m.dagger().cols().iter().map(Conjugate::dagger).collect();
         assert_eq!(cols_out, rows_in);
     }
 
     #[test]
     fn matrix_mult() {
-        let row0 = NVector::row_from_vec(vec![1.0, 2.0]);
-        let row1 = NVector::row_from_vec(vec![3.0, 4.0]);
+        let row0 = RVector::from(vec![1.0, 2.0]);
+        let row1 = RVector::from(vec![3.0, 4.0]);
         let m = MatrixSquare::from_rows(&vec![row0, row1]);
 
-        let v = NVector::col_from_vec(vec![5.0, 6.0]);
+        let v = CVector::from(vec![5.0, 6.0]);
 
         let w = &m * &v;
         assert_eq!(w[0], 1.0 * 5.0 + 2.0 * 6.0);
         assert_eq!(w[1], 3.0 * 5.0 + 4.0 * 6.0);
 
-        let wexp = NVector::col_from_vec(vec![1.0 * 5.0 + 2.0 * 6.0, 3.0 * 5.0 + 4.0 * 6.0]);
+        let wexp = CVector::from(vec![1.0 * 5.0 + 2.0 * 6.0, 3.0 * 5.0 + 4.0 * 6.0]);
         assert_eq!(&m * &v, wexp);
         
-        let wexp = NVector::row_from_vec(vec![5.0 * 1.0 + 6.0 * 3.0, 5.0 * 2.0 + 6.0 * 4.0]);
+        let wexp = RVector::from(vec![5.0 * 1.0 + 6.0 * 3.0, 5.0 * 2.0 + 6.0 * 4.0]);
         assert_eq!(&(v.dagger()) * &m, wexp);
 
-        let row0a = NVector::row_from_vec(vec![7.0, 8.0]);
-        let row1a = NVector::row_from_vec(vec![9.0, 1.0]);
+        let row0a = RVector::from(vec![7.0, 8.0]);
+        let row1a = RVector::from(vec![9.0, 1.0]);
         let n = MatrixSquare::from_rows(&vec![row0a, row1a]);
 
         let p = &m * &n;
