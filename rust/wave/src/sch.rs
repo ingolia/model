@@ -64,7 +64,7 @@ impl ModelS1 {
         MatrixSquare::from(self.hamiltonian_V0_real())
     }
     
-    pub fn hamiltonian_real<T>(&self, v: &NVector<f64, T>) -> MatrixSquare<f64> {
+    pub fn hamiltonian_real(&self, v: &RVector<f64>) -> MatrixSquare<f64> {
         if v.len() != self.hsize {
             panic!("hamiltonian V.len() {} != model hsize {}", v.len(), self.hsize);
         }
@@ -78,7 +78,7 @@ impl ModelS1 {
         hamil
     }
 
-    pub fn hamiltonian<T>(&self, v: &NVector<f64, T>) -> MatrixSquare<f64> {
+    pub fn hamiltonian(&self, v: &RVector<f64>) -> MatrixSquare<f64> {
         MatrixSquare::from(self.hamiltonian_real(v))
     }
 
@@ -93,7 +93,7 @@ impl ModelS1 {
     // }    
 }
 
-pub fn stationary_states(hamil: &MatrixSquare<f64>) -> Vec<(f64,NVector<f64,Col>)> {
+pub fn stationary_states(hamil: &MatrixSquare<f64>) -> Vec<(f64,CVector<f64>)> {
     let (eigvals, eigvecs) = hamil.dsyev();
     eigvals.into_iter().zip(eigvecs.cols().into_iter()).collect()
 }
