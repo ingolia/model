@@ -1,9 +1,13 @@
 use std::io::Write;
 use std::path::Path;
 
-use num_complex::*;
-
-use crate::linalg::*;
+use nalgebra::Complex;
+use nalgebra::ComplexField;
+use nalgebra::allocator::Allocator;
+use nalgebra::base::*;
+use nalgebra::base::dimension::*;
+use nalgebra::linalg::SymmetricEigen;
+use num_traits::*;
 
 pub const PLANCK_DEFAULT: f64 = 4.0;
 pub const MASS_DEFAULT: f64 = 1.0;
@@ -13,58 +17,66 @@ pub struct ModelS1 {
     planck: f64,
     mass: f64,
     length: f64,
-    hsize: usize,
+    hsize: usize
 }
 
-impl ModelS1 {
+impl ModelS1
+{
+    fn hsize(&self) -> usize {
+        self.hsize
+    }
+
+    fn hstep(&self) -> f64 {
+        self.length / (self.hsize() as f64)
+    }
+    
     pub fn new(planck: f64, mass: f64, length: f64, hsize: usize) -> Self {
         ModelS1 { planck: planck, mass: mass, length: length, hsize: hsize }
     }
-
-    pub fn position(&self) -> MatrixSquare<Complex64> {
-        let mut pos = MatrixSquare::zeros(self.hsize);
-
-        for j in 0..self.hsize {
-            pos[(j,j)] = Complex64::new(self.length * ((j as f64 + 0.5) / (self.hsize as f64)), 0.0);
+    
+    pub fn position(&self) -> DMatrix<Complex<f64>> {
+        let mut pos: DMatrix<Complex<f64>> = DMatrix::from_element(self.hsize, self.hsize, Zero::zero());
+        for j in 0..pos.nrows() {
+            pos[(j, j)] = Complex::new((j as f64 + 0.5) * self.hstep(), 0.0);
         }
-
         pos
     }
 
-    pub fn momentum(&self) -> MatrixSquare<Complex64> {
-        let mut q = MatrixSquare::zeros(self.hsize);
-        
-        for j in 0..self.hsize {
+    pub fn momentum(&self) -> DMatrix<Complex<f64>> {
+        let mut q: DMatrix<Complex<f64>> = DMatrix::from_element(self.hsize, self.hsize, Zero::zero());
+        let nrow = q.nrows();
+            
+        for j in 0..nrow {
             // - i h d/dx = - i h (psi_{j+1} - psi_{j-1}) = i h psi_{j-1} - i h psi_{j+1}
-            q[(j, (j+self.hsize-1)%self.hsize)] = Complex64::i() * self.planck;
-            q[(j, (j+self.hsize+1)%self.hsize)] = -Complex64::i() * self.planck;
+            q[(j, (j+nrow-1)%nrow)] = Complex::i() * self.planck;
+            q[(j, (j+nrow+1)%nrow)] = -Complex::i() * self.planck;
         }
 
         q
     }
 
-    pub fn hamiltonian_v0_real(&self) -> MatrixSquare<f64> {
-        let hstep = self.length / (self.hsize as f64);
-
-        let mut hamil = MatrixSquare::zeros(self.hsize);
+    pub fn hamiltonian_v0_real(&self) -> DMatrix<f64> {
+        let mut hamil: DMatrix<f64> = DMatrix::from_element(self.hsize, self.hsize, 0.0);
 
         let pfact = -0.5 * self.planck * self.planck / self.mass;
-        let hstep2 = 1.0 / (hstep * hstep);
+        let hstep2 = 1.0 / (self.hstep() * self.hstep());
 
-        for j in 0..self.hsize {
-            hamil[(j, (j+self.hsize-1)%self.hsize)] = pfact * hstep2;
-            hamil[(j, (j+self.hsize+1)%self.hsize)] = pfact * hstep2;
+        let nrow = hamil.nrows();
+        
+        for j in 0..nrow {
+            hamil[(j, (j+nrow-1)%nrow)] = pfact * hstep2;
+            hamil[(j, (j+nrow+1)%nrow)] = pfact * hstep2;
             hamil[(j, j)] = -2.0 * pfact * hstep2;
         }
 
         hamil
     }
     
-    pub fn hamiltonian_v0(&self) -> MatrixSquare<Complex64> {
-        MatrixSquare::from(self.hamiltonian_v0_real())
+    pub fn hamiltonian_v0(&self) -> DMatrix<Complex<f64>> {
+        DMatrix::from_iterator(self.hsize, self.hsize, self.hamiltonian_v0_real().into_iter().map(|&x| Complex::from_real(x)))
     }
     
-    pub fn hamiltonian_real(&self, v: &RVector<f64>) -> MatrixSquare<f64> {
+    pub fn hamiltonian_real(&self, v: &DVector<f64>) -> DMatrix<f64> {
         if v.len() != self.hsize {
             panic!("hamiltonian V.len() {} != model hsize {}", v.len(), self.hsize);
         }
@@ -78,8 +90,8 @@ impl ModelS1 {
         hamil
     }
 
-    pub fn hamiltonian(&self, v: &RVector<f64>) -> MatrixSquare<f64> {
-        MatrixSquare::from(self.hamiltonian_real(v))
+    pub fn hamiltonian(&self, v: &DVector<f64>) -> DMatrix<Complex<f64>> {
+        DMatrix::from_iterator(self.hsize, self.hsize, self.hamiltonian_real(v).into_iter().map(|&x| Complex::new(x, 0.0)))
     }
 
     // pub fn hamiltonian_spinor<T>(&self, v: &NVector<f64, T>) -> MatrixSquare<f64> {
@@ -93,12 +105,18 @@ impl ModelS1 {
     // }    
 }
 
-pub fn stationary_states(hamil: &MatrixSquare<f64>) -> Vec<(f64,CVector<f64>)> {
-    let (eigvals, eigvecs) = hamil.dsyev();
-    eigvals.into_iter().zip(eigvecs.cols().into_iter()).collect()
+pub fn stationary_states(hamil: &DMatrix<f64>) -> Vec<(f64,DVector<Complex<f64>>)> {
+    let eig = SymmetricEigen::new(hamil.clone());
+
+    let mut states: Vec<(f64,DVector<Complex<f64>>)> = eig.eigenvalues.iter()
+        .zip(eig.eigenvectors.column_iter())
+        .map(|(&val, vec)| (val, DVector::from_iterator(hamil.nrows(), vec.into_iter().map(|&x| Complex::from_real(x)))))
+        .collect();
+    states.sort_by(|(va, _), (vb, _)| va.partial_cmp(vb).unwrap());
+    states
 }
 
-pub fn write_stationary<P: AsRef<Path>, Q: AsRef<Path>>(vec_file: P, e_file: Q, hamil: &MatrixSquare<f64>) -> std::io::Result<()> {
+pub fn write_stationary<P: AsRef<Path>, Q: AsRef<Path>>(vec_file: P, e_file: Q, hamil: &DMatrix<f64>) -> std::io::Result<()> {
     let mut vec_out = std::fs::File::create(vec_file)?;
     let mut e_out = std::fs::File::create(e_file)?;
 
@@ -129,29 +147,29 @@ pub fn write_stationary<P: AsRef<Path>, Q: AsRef<Path>>(vec_file: P, e_file: Q, 
     Ok(())
 }
     
-pub fn make_time_evol(hamil: &MatrixSquare<f64>, tstep_over_planck: f64) -> MatrixSquare<Complex64> {
-    // println!("H =\n{:6.3}", hamil);
+// pub fn make_time_evol(hamil: &MatrixSquare<f64>, tstep_over_planck: f64) -> MatrixSquare<Complex64> {
+//     // println!("H =\n{:6.3}", hamil);
 
-    let (eigvals, eigvecs) = hamil.dsyev();
+//     let (eigvals, eigvecs) = hamil.dsyev();
 
-    let eigvecinv: MatrixSquare<Complex64> = eigvecs.into();
+//     let eigvecinv: MatrixSquare<Complex64> = eigvecs.into();
     
-    let eigvecfwd = eigvecinv.dagger();
+//     let eigvecfwd = eigvecinv.dagger();
 
-    // println!("eigvecfwd =\n{:13.3}", eigvecfwd);
-    // println!("eigvecinv =\n{:13.3}", eigvecinv);
+//     // println!("eigvecfwd =\n{:13.3}", eigvecfwd);
+//     // println!("eigvecinv =\n{:13.3}", eigvecinv);
 
-    let mut eigvalmat = MatrixSquare::zeros(eigvals.len());
-    for (i, eigval) in eigvals.iter().enumerate() {
-        eigvalmat[(i, i)] = (-Complex64::i() * f64::from(eigval * tstep_over_planck)).exp();
-    }
-    // println!("eigvalmat =\n{:13.3}", eigvalmat);
+//     let mut eigvalmat = MatrixSquare::zeros(eigvals.len());
+//     for (i, eigval) in eigvals.iter().enumerate() {
+//         eigvalmat[(i, i)] = (-Complex64::i() * f64::from(eigval * tstep_over_planck)).exp();
+//     }
+//     // println!("eigvalmat =\n{:13.3}", eigvalmat);
 
-    let timeevol = &eigvecinv * &eigvalmat * &eigvecfwd;
+//     let timeevol = &eigvecinv * &eigvalmat * &eigvecfwd;
 
-    // println!("timeevol =\n{:13.3}", timeevol);
+//     // println!("timeevol =\n{:13.3}", timeevol);
 
-    // println!("timeevol^H timeevol =\n{:13.3}", timeevol.dagger().mmulm(&timeevol));
+//     // println!("timeevol^H timeevol =\n{:13.3}", timeevol.dagger().mmulm(&timeevol));
 
-    timeevol
-}
+//     timeevol
+// }

@@ -9,7 +9,10 @@ blas = "*"
 lapack = "*"
 num-complex = "0.2.3"
 num-traits = "*"
-ndarray = { version = "0.12.1", features = ["blas"] }
-# openblas-src = "*"
-# netlib-src = "*"
-accelerate-src = "*"
+nalgebra = "*"
+typenum = "*"
+
+[dependencies.nalgebra-lapack]
+default-features = false # do not include the default features, and optionally
+                         # cherry-pick individual features
+features = ["accelerate"]
