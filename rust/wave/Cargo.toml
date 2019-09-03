@@ -11,6 +11,7 @@ num-complex = "0.2.3"
 num-traits = "*"
 nalgebra = "*"
 typenum = "*"
+piston_window = "0.98.0"
 
 [dependencies.nalgebra-lapack]
 default-features = false # do not include the default features, and optionally
