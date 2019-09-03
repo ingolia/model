@@ -3,6 +3,7 @@ use std::path::Path;
 
 use nalgebra::Complex;
 use nalgebra::ComplexField;
+use nalgebra::{convert,convert_ref};
 use nalgebra::allocator::Allocator;
 use nalgebra::base::*;
 use nalgebra::base::dimension::*;
@@ -105,6 +106,15 @@ impl ModelS1
     // }    
 }
 
+const IM_MIN: f64 = 1e-9;
+pub fn herm_exp(state: &DVector<Complex<f64>>, op: &DMatrix<Complex<f64>>) -> f64 {
+    let mut rhs = state.clone();
+    rhs.hegemv(One::one(), op, state, Zero::zero());
+    let exp_c = state.dotc(&rhs);
+    assert!(exp_c.im < IM_MIN);
+    exp_c.re
+}
+
 pub fn stationary_states(hamil: &DMatrix<f64>) -> Vec<(f64,DVector<Complex<f64>>)> {
     let eig = SymmetricEigen::new(hamil.clone());
 
@@ -147,29 +157,29 @@ pub fn write_stationary<P: AsRef<Path>, Q: AsRef<Path>>(vec_file: P, e_file: Q, 
     Ok(())
 }
     
-// pub fn make_time_evol(hamil: &MatrixSquare<f64>, tstep_over_planck: f64) -> MatrixSquare<Complex64> {
-//     // println!("H =\n{:6.3}", hamil);
+pub fn make_time_evol(hamil: &DMatrix<f64>, tstep_over_planck: f64) -> DMatrix<Complex<f64>> {
+    println!("H =\n{:6.3}", hamil);
 
-//     let (eigvals, eigvecs) = hamil.dsyev();
+    let eig = SymmetricEigen::new(hamil.clone());
 
-//     let eigvecinv: MatrixSquare<Complex64> = eigvecs.into();
-    
-//     let eigvecfwd = eigvecinv.dagger();
+    let eigvecinv: DMatrix<Complex<f64>> = convert(eig.eigenvectors);
+    let eigvecfwd = eigvecinv.adjoint();
 
-//     // println!("eigvecfwd =\n{:13.3}", eigvecfwd);
-//     // println!("eigvecinv =\n{:13.3}", eigvecinv);
+    println!("eigvecfwd =\n{:13.3}", eigvecfwd);
+    println!("eigvecinv =\n{:13.3}", eigvecinv);
 
-//     let mut eigvalmat = MatrixSquare::zeros(eigvals.len());
-//     for (i, eigval) in eigvals.iter().enumerate() {
-//         eigvalmat[(i, i)] = (-Complex64::i() * f64::from(eigval * tstep_over_planck)).exp();
-//     }
-//     // println!("eigvalmat =\n{:13.3}", eigvalmat);
+    let mut eigvalmat = DMatrix::zeros(eig.eigenvalues.len(), eig.eigenvalues.len());
+    for (i, eigval) in eig.eigenvalues.iter().enumerate() {
+        let phase = Complex::new(0.0, -eigval * tstep_over_planck);
+        eigvalmat[(i, i)] = phase.exp();
+    }
+    println!("eigvalmat =\n{:13.3}", eigvalmat);
 
-//     let timeevol = &eigvecinv * &eigvalmat * &eigvecfwd;
+    let timeevol = eigvecinv * eigvalmat * eigvecfwd;
 
-//     // println!("timeevol =\n{:13.3}", timeevol);
+    println!("timeevol =\n{:13.3}", timeevol);
 
-//     // println!("timeevol^H timeevol =\n{:13.3}", timeevol.dagger().mmulm(&timeevol));
+    //println!("timeevol^H timeevol =\n{:13.3}", timeevol.dagger().mmulm(&timeevol));
 
-//     timeevol
-// }
+    timeevol
+}
